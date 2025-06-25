@@ -27,13 +27,42 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // Custom setWallet that respects preferred network
+  const setWalletWithNetwork = (walletInfo: WalletInfo | null) => {
+    if (walletInfo) {
+      // Check if there's a preferred network stored
+      const preferredNetwork = localStorage.getItem('preferredNetwork');
+      if (preferredNetwork) {
+        const chainId = parseInt(preferredNetwork);
+        // Switch to preferred network if it's different from current
+        if (chainId !== walletInfo.chainId) {
+          walletService.switchNetwork(chainId).then((success) => {
+            if (success) {
+              setWallet({
+                ...walletInfo,
+                chainId,
+                chain: walletService.getCurrentChain()
+              });
+              // Clear the preference after applying it
+              localStorage.removeItem('preferredNetwork');
+            } else {
+              setWallet(walletInfo);
+            }
+          });
+          return;
+        }
+      }
+    }
+    setWallet(walletInfo);
+  };
+
   return (
     <Web3Context.Provider
       value={{
         wallet,
         isConnecting,
         isConnected: !!wallet,
-        setWallet,
+        setWallet: setWalletWithNetwork,
         refreshBalance,
       }}
     >

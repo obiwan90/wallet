@@ -8,7 +8,7 @@ import {
   type Address,
   type Chain
 } from 'viem';
-import { mainnet, polygon, bsc, avalanche } from 'viem/chains';
+import { mainnet, polygon, bsc, avalanche, arbitrum, optimism, base } from 'viem/chains';
 
 export interface WalletInfo {
   address: Address;
@@ -73,6 +73,9 @@ export class WalletService {
       case 137: return polygon;
       case 56: return bsc;
       case 43114: return avalanche;
+      case 42161: return arbitrum;
+      case 10: return optimism;
+      case 8453: return base;
       default: return mainnet;
     }
   }
@@ -122,10 +125,13 @@ export const walletService = new WalletService();
 
 // Network configurations
 export const NETWORKS = {
-  1: { name: 'Ethereum Mainnet', symbol: 'ETH', chain: mainnet, color: '#627EEA' },
-  137: { name: 'Polygon', symbol: 'MATIC', chain: polygon, color: '#8247E5' },
-  56: { name: 'BSC', symbol: 'BNB', chain: bsc, color: '#F3BA2F' },
-  43114: { name: 'Avalanche', symbol: 'AVAX', chain: avalanche, color: '#E84142' }
+  1: { name: 'Ethereum', symbol: 'ETH', chain: mainnet, color: '#627EEA', rpcUrl: 'https://eth.llamarpc.com' },
+  137: { name: 'Polygon', symbol: 'MATIC', chain: polygon, color: '#8247E5', rpcUrl: 'https://polygon.llamarpc.com' },
+  56: { name: 'BSC', symbol: 'BNB', chain: bsc, color: '#F3BA2F', rpcUrl: 'https://binance.llamarpc.com' },
+  43114: { name: 'Avalanche', symbol: 'AVAX', chain: avalanche, color: '#E84142', rpcUrl: 'https://avalanche.drpc.org' },
+  42161: { name: 'Arbitrum', symbol: 'ETH', chain: arbitrum, color: '#28A0F0', rpcUrl: 'https://arbitrum.llamarpc.com' },
+  10: { name: 'Optimism', symbol: 'ETH', chain: optimism, color: '#FF0420', rpcUrl: 'https://optimism.llamarpc.com' },
+  8453: { name: 'Base', symbol: 'ETH', chain: base, color: '#0052FF', rpcUrl: 'https://base.llamarpc.com' }
 };
 
 // Utility functions

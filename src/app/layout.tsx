@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Web3Provider } from "@/contexts/Web3Context";
 import { Toaster } from "@/components/ui/sonner";
+import { BackgroundGradient } from "@/components/background-gradient";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,7 +38,9 @@ export default function RootLayout({
           disableTransitionOnChange={false}
         >
           <Web3Provider>
-            {children}
+            <BackgroundGradient>
+              {children}
+            </BackgroundGradient>
             <Toaster />
           </Web3Provider>
         </ThemeProvider>
