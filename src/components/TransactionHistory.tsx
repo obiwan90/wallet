@@ -6,7 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { History, ArrowUpRight, ArrowDownLeft, ExternalLink, Copy } from 'lucide-react';
-import { NETWORKS } from '@/lib/web3';
+import { NETWORKS, formatAddress } from '@/lib/web3';
+import { formatTime } from '@/lib/utils';
 import { toast } from 'sonner';
 
 interface Transaction {
@@ -61,27 +62,10 @@ export function TransactionHistory() {
           gasUsed: '21000',
         },
       ];
-      
+
       setTransactions(mockTransactions);
     }
   }, [wallet, isConnected]);
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`;
-  };
-
-  const formatTime = (timestamp: number) => {
-    const now = Date.now();
-    const diff = now - timestamp;
-    
-    if (diff < 3600000) { // Less than 1 hour
-      return `${Math.floor(diff / 60000)}m ago`;
-    } else if (diff < 86400000) { // Less than 1 day
-      return `${Math.floor(diff / 3600000)}h ago`;
-    } else {
-      return `${Math.floor(diff / 86400000)}d ago`;
-    }
-  };
 
   const copyHash = async (hash: string) => {
     await navigator.clipboard.writeText(hash);
@@ -122,23 +106,22 @@ export function TransactionHistory() {
             {transactions.map((tx) => (
               <div key={tx.hash} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
                 <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    tx.type === 'send' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
-                  }`}>
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'send' ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'
+                    }`}>
                     {tx.type === 'send' ? (
                       <ArrowUpRight className="h-5 w-5" />
                     ) : (
                       <ArrowDownLeft className="h-5 w-5" />
                     )}
                   </div>
-                  
+
                   <div>
                     <div className="font-medium flex items-center gap-2">
                       {tx.type === 'send' ? 'Sent' : 'Received'}
-                      <Badge 
+                      <Badge
                         variant={
-                          tx.status === 'success' ? 'default' : 
-                          tx.status === 'pending' ? 'secondary' : 'destructive'
+                          tx.status === 'success' ? 'default' :
+                            tx.status === 'pending' ? 'secondary' : 'destructive'
                         }
                         className="text-xs"
                       >
@@ -156,9 +139,8 @@ export function TransactionHistory() {
                 </div>
 
                 <div className="text-right">
-                  <div className={`font-medium ${
-                    tx.type === 'send' ? 'text-red-600' : 'text-green-600'
-                  }`}>
+                  <div className={`font-medium ${tx.type === 'send' ? 'text-red-600' : 'text-green-600'
+                    }`}>
                     {tx.type === 'send' ? '-' : '+'}{tx.amount} {networkSymbol}
                   </div>
                   <div className="flex items-center gap-1">

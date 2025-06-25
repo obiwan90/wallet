@@ -25,7 +25,7 @@ export class WalletManager {
   generateWallet(name: string = 'Account 1'): WalletData {
     const mnemonic = generateMnemonic();
     const account = mnemonicToAccount(mnemonic);
-    
+
     return {
       mnemonic,
       address: account.address,
@@ -40,7 +40,7 @@ export class WalletManager {
     }
 
     const account = mnemonicToAccount(mnemonic);
-    
+
     return {
       mnemonic,
       address: account.address,
@@ -52,7 +52,7 @@ export class WalletManager {
   importFromPrivateKey(privateKey: string, name: string = 'Imported Account'): WalletData {
     try {
       const account = privateKeyToAccount(privateKey as `0x${string}`);
-      
+
       return {
         privateKey,
         address: account.address,
@@ -72,7 +72,7 @@ export class WalletManager {
     // For simplicity, we'll use the same mnemonic but with different derivation paths
     // In a real implementation, you'd use proper BIP44 derivation
     const account = mnemonicToAccount(mnemonic, { addressIndex: accountIndex });
-    
+
     return {
       mnemonic,
       address: account.address,
@@ -117,7 +117,7 @@ export class WalletManager {
 
     const encrypted = this.encryptWalletData(walletData, password);
     const accounts = this.getStoredAccounts();
-    
+
     const account: Account = {
       id: Date.now().toString(),
       name: walletData.name,
@@ -167,7 +167,6 @@ export class WalletManager {
       // For now, return a placeholder
       return '0.0';
     } catch (error) {
-      console.error('Failed to get balance:', error);
       return '0.0';
     }
   }

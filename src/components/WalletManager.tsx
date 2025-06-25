@@ -35,7 +35,6 @@ export function WalletManager() {
       setNewWalletData(wallet);
       toast.success('New wallet generated successfully!');
     } catch (error) {
-      console.error('Failed to create wallet:', error);
       toast.error('Failed to create wallet');
     }
   };
@@ -55,7 +54,6 @@ export function WalletManager() {
       setNewWalletData(wallet);
       toast.success('Wallet imported successfully!');
     } catch (error) {
-      console.error('Failed to import wallet:', error);
       toast.error('Invalid seed phrase');
     }
   };
@@ -75,7 +73,6 @@ export function WalletManager() {
       setNewWalletData(wallet);
       toast.success('Wallet imported successfully!');
     } catch (error) {
-      console.error('Failed to import wallet:', error);
       toast.error('Invalid private key');
     }
   };
@@ -114,7 +111,6 @@ export function WalletManager() {
       toast.success('Wallet saved successfully!');
       loadAccounts();
     } catch (error) {
-      console.error('Failed to save wallet:', error);
       toast.error('Failed to save wallet');
     }
   };
@@ -165,7 +161,6 @@ export function WalletManager() {
       walletService.switchAccount(account.id);
       toast.success(`Switched to ${account.name}`);
     } catch (error) {
-      console.error('Failed to switch account:', error);
       toast.error('Failed to switch account');
     }
   };
@@ -176,7 +171,6 @@ export function WalletManager() {
       loadAccounts();
       toast.success('Account deleted successfully');
     } catch (error) {
-      console.error('Failed to delete account:', error);
       toast.error('Failed to delete account');
     }
   };

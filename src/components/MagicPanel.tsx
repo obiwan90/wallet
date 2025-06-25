@@ -6,12 +6,11 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Sparkles, 
-  Code, 
-  TrendingUp, 
- 
-  Play, 
+import {
+  Sparkles,
+  Code,
+  TrendingUp,
+  Play,
   FileCode,
   BarChart3,
   Brain
@@ -118,7 +117,6 @@ contract SimpleWallet {
       setAnalysisResults(results);
       toast.success('Portfolio analysis complete!');
     } catch (error) {
-      console.error('Analysis failed:', error);
       toast.error('Analysis failed');
     } finally {
       setIsAnalyzing(false);
@@ -132,7 +130,6 @@ contract SimpleWallet {
       setAnalysisResults(results);
       toast.success('Smart contract validation complete!');
     } catch (error) {
-      console.error('Validation failed:', error);
       toast.error('Validation failed');
     } finally {
       setIsAnalyzing(false);
@@ -152,7 +149,6 @@ contract SimpleWallet {
       setAnalysisResults(results);
       toast.success('Python magic executed!');
     } catch (error) {
-      console.error('Execution failed:', error);
       toast.error('Execution failed');
     } finally {
       setIsAnalyzing(false);
@@ -207,7 +203,7 @@ contract SimpleWallet {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Portfolio Analysis</h3>
-                <Button 
+                <Button
                   onClick={executePortfolioAnalysis}
                   disabled={isAnalyzing}
                   className="bg-gradient-to-r from-purple-500 to-pink-500"
@@ -250,15 +246,14 @@ contract SimpleWallet {
                     {analysisResults.map((result, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg border ${
-                          result.type === 'success'
-                            ? 'bg-green-50 border-green-200 text-green-800'
-                            : result.type === 'warning'
+                        className={`p-3 rounded-lg border ${result.type === 'success'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : result.type === 'warning'
                             ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
                             : result.type === 'info'
-                            ? 'bg-blue-50 border-blue-200 text-blue-800'
-                            : 'bg-red-50 border-red-200 text-red-800'
-                        }`}
+                              ? 'bg-blue-50 border-blue-200 text-blue-800'
+                              : 'bg-red-50 border-red-200 text-red-800'
+                          }`}
                       >
                         {result.message}
                       </div>
@@ -273,7 +268,7 @@ contract SimpleWallet {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Smart Contract Validator</h3>
-                <Button 
+                <Button
                   onClick={validateSmartContract}
                   disabled={isAnalyzing}
                   variant="outline"
@@ -309,15 +304,14 @@ contract SimpleWallet {
                     {analysisResults.map((result, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg border ${
-                          result.type === 'success'
-                            ? 'bg-green-50 border-green-200 text-green-800'
-                            : result.type === 'warning'
+                        className={`p-3 rounded-lg border ${result.type === 'success'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : result.type === 'warning'
                             ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
                             : result.type === 'info'
-                            ? 'bg-blue-50 border-blue-200 text-blue-800'
-                            : 'bg-red-50 border-red-200 text-red-800'
-                        }`}
+                              ? 'bg-blue-50 border-blue-200 text-blue-800'
+                              : 'bg-red-50 border-red-200 text-red-800'
+                          }`}
                       >
                         {result.message}
                       </div>
@@ -332,7 +326,7 @@ contract SimpleWallet {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">Python Magic Executor</h3>
-                <Button 
+                <Button
                   onClick={executePythonMagic}
                   disabled={isAnalyzing}
                   className="bg-gradient-to-r from-blue-500 to-cyan-500"
@@ -363,8 +357,8 @@ contract SimpleWallet {
 
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
                 <p className="text-sm text-blue-800">
-                  <strong>Magic Features:</strong> Your Python code has access to wallet data, 
-                  Web3 libraries, and advanced analytics. Use variables <code>wallet_address</code> and 
+                  <strong>Magic Features:</strong> Your Python code has access to wallet data,
+                  Web3 libraries, and advanced analytics. Use variables <code>wallet_address</code> and
                   <code>balance</code> for your analysis.
                 </p>
               </div>
@@ -376,15 +370,14 @@ contract SimpleWallet {
                     {analysisResults.map((result, index) => (
                       <div
                         key={index}
-                        className={`p-3 rounded-lg border ${
-                          result.type === 'success'
-                            ? 'bg-green-50 border-green-200 text-green-800'
-                            : result.type === 'warning'
+                        className={`p-3 rounded-lg border ${result.type === 'success'
+                          ? 'bg-green-50 border-green-200 text-green-800'
+                          : result.type === 'warning'
                             ? 'bg-yellow-50 border-yellow-200 text-yellow-800'
                             : result.type === 'info'
-                            ? 'bg-blue-50 border-blue-200 text-blue-800'
-                            : 'bg-red-50 border-red-200 text-red-800'
-                        }`}
+                              ? 'bg-blue-50 border-blue-200 text-blue-800'
+                              : 'bg-red-50 border-red-200 text-red-800'
+                          }`}
                       >
                         {result.message}
                       </div>

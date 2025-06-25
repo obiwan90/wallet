@@ -23,7 +23,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       const balance = await walletService.getBalance(wallet.address);
       setWallet(prev => prev ? { ...prev, balance } : null);
     } catch (error) {
-      console.error('Failed to refresh balance:', error);
+      // Silently fail balance refresh
     }
   };
 

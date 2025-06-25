@@ -120,7 +120,7 @@ print("\\n✨ Analysis complete!")
       // Execute Python code using MCP
       // Note: In a real implementation, you would call the MCP tool here
       // For now, we'll simulate the execution and return mock results
-      
+
       const results: MagicAnalysisResult[] = [
         {
           type: 'success',
@@ -135,7 +135,7 @@ print("\\n✨ Analysis complete!")
       ];
 
       const balanceFloat = parseFloat(balance);
-      
+
       if (balanceFloat > 1) {
         results.push({
           type: 'success',
@@ -174,7 +174,6 @@ print("\\n✨ Analysis complete!")
 
       return results;
     } catch (error) {
-      console.error('Portfolio analysis failed:', error);
       return [{
         type: 'error',
         message: 'Portfolio analysis failed',
@@ -187,9 +186,9 @@ print("\\n✨ Analysis complete!")
     try {
       // Use MCP getDiagnostics for real validation
       // For now, simulate smart contract analysis
-      
+
       const results: MagicAnalysisResult[] = [];
-      
+
       // Basic syntax checks
       if (contractCode.includes('pragma solidity')) {
         results.push({
@@ -258,7 +257,6 @@ print("\\n✨ Analysis complete!")
 
       return results;
     } catch (error) {
-      console.error('Smart contract validation failed:', error);
       return [{
         type: 'error',
         message: 'Smart contract validation failed',
@@ -283,7 +281,7 @@ ${code}
 
       // In a real implementation, this would use the MCP executeCode tool
       // For now, simulate execution results
-      
+
       const results: MagicAnalysisResult[] = [
         {
           type: 'success',
@@ -325,7 +323,6 @@ ${code}
 
       return results;
     } catch (error) {
-      console.error('Python execution failed:', error);
       return [{
         type: 'error',
         message: 'Python code execution failed',
@@ -362,7 +359,6 @@ ${code}
 
       return results;
     } catch (error) {
-      console.error('Blockchain insights failed:', error);
       return [{
         type: 'error',
         message: 'Failed to analyze blockchain insights',

@@ -25,7 +25,6 @@ export function NetworkSwitcher() {
         toast.error('Failed to switch network');
       }
     } catch (error) {
-      console.error('Network switch failed:', error);
       toast.error('Failed to switch network');
     } finally {
       setIsLoading(null);
