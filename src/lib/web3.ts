@@ -122,10 +122,10 @@ export const walletService = new WalletService();
 
 // Network configurations
 export const NETWORKS = {
-  1: { name: 'Ethereum Mainnet', symbol: 'ETH', chain: mainnet },
-  137: { name: 'Polygon', symbol: 'MATIC', chain: polygon },
-  56: { name: 'BSC', symbol: 'BNB', chain: bsc },
-  43114: { name: 'Avalanche', symbol: 'AVAX', chain: avalanche }
+  1: { name: 'Ethereum Mainnet', symbol: 'ETH', chain: mainnet, color: '#627EEA' },
+  137: { name: 'Polygon', symbol: 'MATIC', chain: polygon, color: '#8247E5' },
+  56: { name: 'BSC', symbol: 'BNB', chain: bsc, color: '#F3BA2F' },
+  43114: { name: 'Avalanche', symbol: 'AVAX', chain: avalanche, color: '#E84142' }
 };
 
 // Utility functions
