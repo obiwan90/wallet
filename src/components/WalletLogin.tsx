@@ -30,35 +30,81 @@ const BackgroundGradientAnimation = ({
   containerClassName?: string;
 }) => {
   const { theme } = useTheme();
-  
-  // Theme-aware color configurations
+  const [mounted, setMounted] = React.useState(false);
+
+  // Theme-aware color configurations using actual color values from CSS variables
   const getThemeColors = () => {
+    // 确保只在客户端执行
+    if (typeof window === 'undefined') {
+      // 服务器端渲染时返回默认颜色
+      if (theme === 'dark') {
+        return {
+          gradientBackgroundStart: 'hsl(210 40% 20%)',
+          gradientBackgroundEnd: 'hsl(210 40% 15%)',
+          firstColor: '#ff9b71',
+          secondColor: '#b56b45',
+          thirdColor: '#e84855',
+          fourthColor: '#fffd82',
+          fifthColor: '#2b3a67',
+          pointerColor: '#ff9b71',
+        };
+      } else {
+        return {
+          gradientBackgroundStart: 'hsl(45 100% 97%)',
+          gradientBackgroundEnd: 'hsl(45 20% 95%)',
+          firstColor: '#fffd82',
+          secondColor: '#ff9b71',
+          thirdColor: '#e84855',
+          fourthColor: '#b56b45',
+          fifthColor: '#2b3a67',
+          pointerColor: '#e84855',
+        };
+      }
+    }
+
+    const root = document.documentElement;
+    const getColorValue = (varName: string) => {
+      return getComputedStyle(root).getPropertyValue(varName).trim();
+    };
+
     if (theme === 'dark') {
       return {
-        gradientBackgroundStart: "rgb(43, 58, 103)", // delft-blue
-        gradientBackgroundEnd: "rgb(30, 42, 74)", // darker delft-blue
-        firstColor: "255, 155, 113", // atomic-tangerine
-        secondColor: "181, 107, 69", // brown-sugar
-        thirdColor: "232, 72, 85", // red-crayola
-        fourthColor: "255, 253, 130", // icterine
-        fifthColor: "43, 58, 103", // delft-blue
-        pointerColor: "255, 155, 113", // atomic-tangerine
+        gradientBackgroundStart: `hsl(${getColorValue('--background')})`,
+        gradientBackgroundEnd: `hsl(${getColorValue('--muted')})`,
+        firstColor: getColorValue('--atomic-tangerine') || '#ff9b71',
+        secondColor: getColorValue('--brown-sugar') || '#b56b45',
+        thirdColor: getColorValue('--red-crayola') || '#e84855',
+        fourthColor: getColorValue('--icterine') || '#fffd82',
+        fifthColor: getColorValue('--delft-blue') || '#2b3a67',
+        pointerColor: getColorValue('--atomic-tangerine') || '#ff9b71',
       };
     } else {
       return {
-        gradientBackgroundStart: "rgb(254, 252, 240)", // light warm background
-        gradientBackgroundEnd: "rgb(248, 246, 234)", // muted light
-        firstColor: "255, 253, 130", // icterine
-        secondColor: "255, 155, 113", // atomic-tangerine
-        thirdColor: "232, 72, 85", // red-crayola
-        fourthColor: "181, 107, 69", // brown-sugar
-        fifthColor: "43, 58, 103", // delft-blue
-        pointerColor: "232, 72, 85", // red-crayola
+        gradientBackgroundStart: `hsl(${getColorValue('--background')})`,
+        gradientBackgroundEnd: `hsl(${getColorValue('--muted')})`,
+        firstColor: getColorValue('--icterine') || '#fffd82',
+        secondColor: getColorValue('--atomic-tangerine') || '#ff9b71',
+        thirdColor: getColorValue('--red-crayola') || '#e84855',
+        fourthColor: getColorValue('--brown-sugar') || '#b56b45',
+        fifthColor: getColorValue('--delft-blue') || '#2b3a67',
+        pointerColor: getColorValue('--red-crayola') || '#e84855',
       };
     }
   };
-  
-  const colors = getThemeColors();
+
+  const [colors, setColors] = React.useState(() => getThemeColors());
+
+  // 客户端挂载后更新颜色
+  React.useEffect(() => {
+    if (mounted) {
+      setColors(getThemeColors());
+    }
+  }, [mounted, theme]);
+
+  // 确保组件已挂载到客户端
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
   const interactiveRef = React.useRef<HTMLDivElement>(null);
   const [curX, setCurX] = React.useState(0);
   const [curY, setCurY] = React.useState(0);
@@ -67,17 +113,20 @@ const BackgroundGradientAnimation = ({
   const [isSafari, setIsSafari] = React.useState(false);
 
   React.useEffect(() => {
-    document.body.style.setProperty("--gradient-background-start", colors.gradientBackgroundStart);
-    document.body.style.setProperty("--gradient-background-end", colors.gradientBackgroundEnd);
-    document.body.style.setProperty("--first-color", colors.firstColor);
-    document.body.style.setProperty("--second-color", colors.secondColor);
-    document.body.style.setProperty("--third-color", colors.thirdColor);
-    document.body.style.setProperty("--fourth-color", colors.fourthColor);
-    document.body.style.setProperty("--fifth-color", colors.fifthColor);
-    document.body.style.setProperty("--pointer-color", colors.pointerColor);
-    document.body.style.setProperty("--size", "80%");
-    document.body.style.setProperty("--blending-value", "hard-light");
-  }, [theme, colors]);
+    // 只在客户端执行
+    if (mounted && typeof window !== 'undefined') {
+      document.body.style.setProperty("--gradient-background-start", colors.gradientBackgroundStart);
+      document.body.style.setProperty("--gradient-background-end", colors.gradientBackgroundEnd);
+      document.body.style.setProperty("--first-color", colors.firstColor);
+      document.body.style.setProperty("--second-color", colors.secondColor);
+      document.body.style.setProperty("--third-color", colors.thirdColor);
+      document.body.style.setProperty("--fourth-color", colors.fourthColor);
+      document.body.style.setProperty("--fifth-color", colors.fifthColor);
+      document.body.style.setProperty("--pointer-color", colors.pointerColor);
+      document.body.style.setProperty("--size", "80%");
+      document.body.style.setProperty("--blending-value", "hard-light");
+    }
+  }, [mounted, colors]);
 
   React.useEffect(() => {
     function move() {
@@ -98,7 +147,10 @@ const BackgroundGradientAnimation = ({
   };
 
   React.useEffect(() => {
-    setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+    // 只在客户端检查浏览器类型
+    if (typeof window !== 'undefined') {
+      setIsSafari(/^((?!chrome|android).)*safari/i.test(navigator.userAgent));
+    }
   }, []);
 
   return (
@@ -131,7 +183,7 @@ const BackgroundGradientAnimation = ({
         <div
           className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveVertical_30s_ease_infinite]"
           style={{
-            background: `radial-gradient(circle at center, rgba(${colors.firstColor}, 0.8) 0%, rgba(${colors.firstColor}, 0) 50%)`,
+            background: `radial-gradient(circle at center, ${colors.firstColor}cc 0%, ${colors.firstColor}00 50%)`,
             mixBlendMode: "hard-light" as any,
             transformOrigin: "center center"
           }}
@@ -139,7 +191,7 @@ const BackgroundGradientAnimation = ({
         <div
           className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_20s_reverse_infinite]"
           style={{
-            background: `radial-gradient(circle at center, rgba(${colors.secondColor}, 0.8) 0%, rgba(${colors.secondColor}, 0) 50%)`,
+            background: `radial-gradient(circle at center, ${colors.secondColor}cc 0%, ${colors.secondColor}00 50%)`,
             mixBlendMode: "hard-light" as any,
             transformOrigin: "calc(50% - 400px)"
           }}
@@ -147,7 +199,7 @@ const BackgroundGradientAnimation = ({
         <div
           className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_40s_linear_infinite]"
           style={{
-            background: `radial-gradient(circle at center, rgba(${colors.thirdColor}, 0.8) 0%, rgba(${colors.thirdColor}, 0) 50%)`,
+            background: `radial-gradient(circle at center, ${colors.thirdColor}cc 0%, ${colors.thirdColor}00 50%)`,
             mixBlendMode: "hard-light" as any,
             transformOrigin: "calc(50% + 400px)"
           }}
@@ -155,7 +207,7 @@ const BackgroundGradientAnimation = ({
         <div
           className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-70 animate-[moveHorizontal_40s_ease_infinite]"
           style={{
-            background: `radial-gradient(circle at center, rgba(${colors.fourthColor}, 0.8) 0%, rgba(${colors.fourthColor}, 0) 50%)`,
+            background: `radial-gradient(circle at center, ${colors.fourthColor}cc 0%, ${colors.fourthColor}00 50%)`,
             mixBlendMode: "hard-light" as any,
             transformOrigin: "calc(50% - 200px)"
           }}
@@ -163,7 +215,7 @@ const BackgroundGradientAnimation = ({
         <div
           className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_20s_ease_infinite]"
           style={{
-            background: `radial-gradient(circle at center, rgba(${colors.fifthColor}, 0.8) 0%, rgba(${colors.fifthColor}, 0) 50%)`,
+            background: `radial-gradient(circle at center, ${colors.fifthColor}cc 0%, ${colors.fifthColor}00 50%)`,
             mixBlendMode: "hard-light" as any,
             transformOrigin: "calc(50% - 800px) calc(50% + 800px)"
           }}
@@ -174,7 +226,7 @@ const BackgroundGradientAnimation = ({
             onMouseMove={handleMouseMove}
             className="absolute w-full h-full -top-1/2 -left-1/2 opacity-70"
             style={{
-              background: `radial-gradient(circle at center, rgba(${colors.pointerColor}, 0.8) 0%, rgba(${colors.pointerColor}, 0) 50%)`,
+              background: `radial-gradient(circle at center, ${colors.pointerColor}cc 0%, ${colors.pointerColor}00 50%)`,
               mixBlendMode: "hard-light" as any
             }}
           />
@@ -243,7 +295,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
   // Initial entrance animation
   React.useEffect(() => {
     if (cardRef.current && hasWallet !== null) {
-      gsap.fromTo(cardRef.current, 
+      gsap.fromTo(cardRef.current,
         {
           opacity: 0,
           y: 50,
@@ -265,13 +317,13 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
     if (titleRef.current) {
       const text = "Magic Wallet";
       const titleElement = titleRef.current;
-      
+
       // Clear the text initially
       titleElement.textContent = "";
-      
+
       // Create the typewriter effect
       const tl = gsap.timeline({ delay: 0.5 });
-      
+
       // Add each character with a slight delay
       text.split("").forEach((char, index) => {
         tl.to({}, {
@@ -281,38 +333,38 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
           }
         });
       });
-      
+
       // Add a blinking cursor effect
       tl.set(titleElement, {
         borderRight: "2px solid white",
         paddingRight: "2px"
       })
-      .to(titleElement, {
-        borderRightColor: "transparent",
-        duration: 0.5,
-        repeat: 3,
-        yoyo: true
-      })
-      .set(titleElement, {
-        borderRight: "none",
-        paddingRight: "0"
-      });
+        .to(titleElement, {
+          borderRightColor: "transparent",
+          duration: 0.5,
+          repeat: 3,
+          yoyo: true
+        })
+        .set(titleElement, {
+          borderRight: "none",
+          paddingRight: "0"
+        });
     }
   }, []);
 
   // Enhanced GSAP Animation Functions with rolling effects
   const animateCardTransition = (
-    outElement: HTMLElement | null, 
-    inElement: HTMLElement | null, 
+    outElement: HTMLElement | null,
+    inElement: HTMLElement | null,
     direction: 'toForgotPassword' | 'toLogin' | 'toImport'
   ) => {
     const tl = gsap.timeline();
-    
+
     if (outElement) {
       // Enhanced exit animation with rotation and scaling
       const exitY = direction === 'toForgotPassword' ? -150 : direction === 'toImport' ? 150 : 100;
       const exitRotation = direction === 'toForgotPassword' ? -5 : direction === 'toImport' ? 5 : 3;
-      
+
       tl.to(outElement, {
         opacity: 0,
         y: exitY,
@@ -324,13 +376,13 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
         transformOrigin: "center center"
       });
     }
-    
+
     if (inElement) {
       // Enhanced entry animation with rolling and bouncing effect
       const startY = direction === 'toForgotPassword' ? 150 : direction === 'toImport' ? -150 : -100;
       const startRotation = direction === 'toForgotPassword' ? 5 : direction === 'toImport' ? -5 : -3;
-      
-      tl.fromTo(inElement, 
+
+      tl.fromTo(inElement,
         {
           opacity: 0,
           y: startY,
@@ -351,31 +403,31 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
         outElement ? 0.2 : 0
       );
     }
-    
+
     return tl;
   };
 
   const animateButtonClick = (button: HTMLElement) => {
     const tl = gsap.timeline();
-    
+
     tl.to(button, {
       scale: 0.92,
       rotation: 1,
       duration: 0.1,
       ease: "power2.out"
     })
-    .to(button, {
-      scale: 1.02,
-      rotation: -0.5,
-      duration: 0.15,
-      ease: "elastic.out(1, 0.5)"
-    })
-    .to(button, {
-      scale: 1,
-      rotation: 0,
-      duration: 0.1,
-      ease: "power2.out"
-    });
+      .to(button, {
+        scale: 1.02,
+        rotation: -0.5,
+        duration: 0.15,
+        ease: "elastic.out(1, 0.5)"
+      })
+      .to(button, {
+        scale: 1,
+        rotation: 0,
+        duration: 0.1,
+        ease: "power2.out"
+      });
   };
 
   // Enhanced forgot password toggle with GSAP for independent cards
@@ -509,14 +561,14 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
     try {
       const wallet = walletManager.generateWallet();
       wallet.name = walletName || (hasWallet ? 'New Wallet' : 'My Wallet');
-      
+
       // Store the generated wallet temporarily and show seed phrase
       setGeneratedWallet(wallet);
       setShowSeedPhrase(true);
-      
+
       // Animate to seed phrase confirmation screen
       animateCardTransition(createWalletFormRef.current, seedPhraseConfirmRef.current, 'toForgotPassword');
-      
+
       toast.success('Wallet generated! Please save your seed phrase.');
     } catch (error) {
       toast.error('Failed to create wallet');
@@ -584,8 +636,8 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
         <div className="w-full max-w-md mx-auto min-h-screen flex flex-col justify-center py-4">
           {/* Logo and Title */}
           <div className="text-center mb-6 md:mb-8">
-            <h1 ref={titleRef} className="text-4xl md:text-6xl font-black text-gray-800 dark:text-white mb-4 tracking-wide" style={{fontFamily: '"Creepster", "Chiller", "Papyrus", "Brush Script MT", cursive', textShadow: '2px 2px 4px rgba(0,0,0,0.5)'}}>Magic Wallet</h1>
-            <p className="text-gray-600 dark:text-white/70 text-sm md:text-base">Smart Web3 wallet, securely manage your digital assets</p>
+            <h1 ref={titleRef} className="text-4xl md:text-6xl font-black text-foreground mb-4 tracking-wide" style={{ fontFamily: '"Creepster", "Chiller", "Papyrus", "Brush Script MT", cursive', textShadow: `2px 2px 4px hsl(var(--foreground) / 0.5)` }}>Magic Wallet</h1>
+            <p className="text-muted-foreground text-sm md:text-base">Smart Web3 wallet, securely manage your digital assets</p>
           </div>
 
           {hasWallet === null ? (
@@ -605,21 +657,21 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                   <CardContent className="p-4 md:p-6">
                     <div className="space-y-4 md:space-y-6 mt-4 md:mt-6">
                       <div className="text-center py-2 md:py-4">
-                        <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white mb-1 md:mb-2">Welcome Back</h3>
-                        <p className="text-gray-600 dark:text-white/70 text-xs md:text-sm">
+                        <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">Welcome Back</h3>
+                        <p className="text-muted-foreground text-xs md:text-sm">
                           Enter your password to unlock your wallet
                         </p>
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="loginPassword" className="text-gray-700 dark:text-white/90 text-sm">Wallet Password</Label>
+                        <Label htmlFor="loginPassword" className="text-foreground text-sm">Wallet Password</Label>
                         <Input
                           id="loginPassword"
                           type="password"
                           placeholder="Enter your wallet password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-10 md:h-11"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-10 md:h-11"
                           onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         />
                       </div>
@@ -641,7 +693,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                             animateButtonClick(e.currentTarget);
                             setTimeout(() => handleForgotPasswordToggle(true), 100);
                           }}
-                          className="text-gray-600 dark:text-white/70 hover:text-gray-800 dark:hover:text-white text-xs underline transition-colors"
+                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
                         >
                           Forgot Password?
                         </button>
@@ -660,56 +712,56 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                         <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-accent to-primary rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
                           <Download className="w-6 h-6 md:w-8 md:h-8 text-white" />
                         </div>
-                        <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white mb-1 md:mb-2">Forgot Password?</h3>
-                        <p className="text-gray-600 dark:text-white/70 text-xs md:text-sm mb-2 md:mb-4">
+                        <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">Forgot Password?</h3>
+                        <p className="text-muted-foreground text-xs md:text-sm mb-2 md:mb-4">
                           Use your seed phrase to recover your wallet
                         </p>
                       </div>
-                      
+
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="seedPhrase" className="text-gray-700 dark:text-white/90 text-sm">Seed Phrase</Label>
+                        <Label htmlFor="seedPhrase" className="text-foreground text-sm">Seed Phrase</Label>
                         <Textarea
                           id="seedPhrase"
                           placeholder="Enter your 12 or 24 word seed phrase, separated by spaces"
                           value={seedPhrase}
                           onChange={(e) => setSeedPhrase(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm"
                           rows={2}
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="walletName" className="text-white/90 text-sm">Wallet Name</Label>
+                        <Label htmlFor="walletName" className="text-foreground text-sm">Wallet Name</Label>
                         <Input
                           id="walletName"
                           placeholder="Give your wallet a name"
                           value={walletName}
                           onChange={(e) => setWalletName(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="password" className="text-white/90 text-sm">New Password</Label>
+                        <Label htmlFor="password" className="text-foreground text-sm">New Password</Label>
                         <Input
                           id="password"
                           type="password"
                           placeholder="Set new wallet password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="confirmPassword" className="text-white/90 text-sm">Confirm Password</Label>
+                        <Label htmlFor="confirmPassword" className="text-foreground text-sm">Confirm Password</Label>
                         <Input
                           id="confirmPassword"
                           type="password"
                           placeholder="Enter password again"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
@@ -730,7 +782,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                             animateButtonClick(e.currentTarget);
                             setTimeout(() => handleForgotPasswordToggle(false), 100);
                           }}
-                          className="text-gray-600 dark:text-white/70 hover:text-gray-800 dark:hover:text-white text-xs underline transition-colors"
+                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
                         >
                           Back to Login
                         </button>
@@ -749,49 +801,49 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                         <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-secondary to-primary rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
                           <Plus className="w-6 h-6 md:w-8 md:h-8 text-white" />
                         </div>
-                        <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white mb-1 md:mb-2">Create New Wallet</h3>
-                        <p className="text-gray-600 dark:text-white/70 text-xs md:text-sm mb-2 md:mb-4">
+                        <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">Create New Wallet</h3>
+                        <p className="text-muted-foreground text-xs md:text-sm mb-2 md:mb-4">
                           We'll generate a secure wallet and seed phrase for you
                         </p>
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="newWalletName" className="text-gray-700 dark:text-white/90 text-sm">Wallet Name</Label>
+                        <Label htmlFor="newWalletName" className="text-foreground text-sm">Wallet Name</Label>
                         <Input
                           id="newWalletName"
                           placeholder="Give your wallet a name"
                           value={walletName}
                           onChange={(e) => setWalletName(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="newPassword" className="text-gray-700 dark:text-white/90 text-sm">Password</Label>
+                        <Label htmlFor="newPassword" className="text-foreground text-sm">Password</Label>
                         <Input
                           id="newPassword"
                           type="password"
                           placeholder="Set wallet password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="newConfirmPassword" className="text-gray-700 dark:text-white/90 text-sm">Confirm Password</Label>
+                        <Label htmlFor="newConfirmPassword" className="text-foreground text-sm">Confirm Password</Label>
                         <Input
                           id="newConfirmPassword"
                           type="password"
                           placeholder="Enter password again"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
-                      <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg p-2 md:p-4">
-                        <p className="text-yellow-200 text-xs md:text-sm">
+                      <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2 md:p-4">
+                        <p className="text-destructive-foreground text-xs md:text-sm">
                           <strong>Important:</strong> Please save your seed phrase in a secure place. You'll need it to recover your wallet.
                         </p>
                       </div>
@@ -808,13 +860,13 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                       </Button>
 
                       <div className="text-center">
-                        <p className="text-gray-500 dark:text-white/50 text-xs mb-2">Already have a wallet?</p>
+                        <p className="text-muted-foreground text-xs mb-2">Already have a wallet?</p>
                         <button
                           onClick={(e) => {
                             animateButtonClick(e.currentTarget);
                             setTimeout(() => handleWalletModeToggle(true), 100);
                           }}
-                          className="text-gray-600 dark:text-white/70 hover:text-gray-800 dark:hover:text-white text-xs underline transition-colors"
+                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
                         >
                           Import Existing Wallet
                         </button>
@@ -830,18 +882,18 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                   <CardContent className="p-4 md:p-6">
                     <div className="space-y-3 md:space-y-4 mt-4 md:mt-6">
                       <div className="text-center py-2 md:py-4">
-                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
+                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
                           <Download className="w-6 h-6 md:w-8 md:h-8 text-white" />
                         </div>
-                        <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white mb-1 md:mb-2">Import Existing Wallet</h3>
-                        <p className="text-gray-600 dark:text-white/70 text-xs md:text-sm mb-2 md:mb-4">
+                        <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">Import Existing Wallet</h3>
+                        <p className="text-muted-foreground text-xs md:text-sm mb-2 md:mb-4">
                           Enter your 12-word seed phrase to recover your wallet
                         </p>
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label className="text-gray-700 dark:text-white/90 text-sm">Seed Phrase</Label>
-                        <div className="bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-white/20 rounded-lg p-3 md:p-4">
+                        <Label className="text-foreground text-sm">Seed Phrase</Label>
+                        <div className="bg-background-100 dark:bg-background-900/50 border border-border rounded-lg p-3 md:p-4">
                           <div className="grid grid-cols-3 gap-2">
                             {seedWords.map((word, index) => (
                               <div key={index} className="relative">
@@ -849,7 +901,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                                   type="text"
                                   value={word}
                                   onChange={(e) => handleSeedWordChange(index, e.target.value)}
-                                  className="w-full bg-white dark:bg-white/10 border border-gray-200 dark:border-white/10 rounded-lg p-2 text-center text-gray-800 dark:text-white text-sm font-medium placeholder:text-gray-400 dark:placeholder:text-white/40 focus:border-primary/50 focus:outline-none"
+                                  className="w-full bg-background dark:bg-background/10 border border-border rounded-lg p-2 text-center text-foreground font-medium placeholder:text-muted-foreground focus:border-primary/50 focus:outline-none"
                                   placeholder={`Word ${index + 1}`}
                                 />
                                 <span className="absolute -top-1 -left-1 bg-primary text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{index + 1}</span>
@@ -860,37 +912,37 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="importWalletName" className="text-gray-700 dark:text-white/90 text-sm">Wallet Name</Label>
+                        <Label htmlFor="importWalletName" className="text-foreground text-sm">Wallet Name</Label>
                         <Input
                           id="importWalletName"
                           placeholder="Give your wallet a name"
                           value={walletName}
                           onChange={(e) => setWalletName(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="importPassword" className="text-gray-700 dark:text-white/90 text-sm">New Password</Label>
+                        <Label htmlFor="importPassword" className="text-foreground text-sm">New Password</Label>
                         <Input
                           id="importPassword"
                           type="password"
                           placeholder="Set new wallet password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="importConfirmPassword" className="text-gray-700 dark:text-white/90 text-sm">Confirm Password</Label>
+                        <Label htmlFor="importConfirmPassword" className="text-foreground text-sm">Confirm Password</Label>
                         <Input
                           id="importConfirmPassword"
                           type="password"
                           placeholder="Enter password again"
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                         />
                       </div>
 
@@ -900,7 +952,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                           setTimeout(() => handleImportWallet(), 100);
                         }}
                         disabled={isLoading}
-                        className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white font-semibold py-2 md:py-3 text-sm md:text-base mt-4"
+                        className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold py-2 md:py-3 text-sm md:text-base mt-4"
                       >
                         {isLoading ? "Importing..." : "Import Wallet"}
                       </Button>
@@ -911,7 +963,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                             animateButtonClick(e.currentTarget);
                             setTimeout(() => handleWalletModeToggle(false), 100);
                           }}
-                          className="text-gray-600 dark:text-white/70 hover:text-gray-800 dark:hover:text-white text-xs underline transition-colors"
+                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
                         >
                           Back to Create Wallet
                         </button>
@@ -927,25 +979,25 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                   <CardContent className="p-4 md:p-6">
                     <div className="space-y-3 md:space-y-4 mt-4 md:mt-6">
                       <div className="text-center py-2 md:py-4">
-                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
+                        <div className="w-12 h-12 md:w-16 md:h-16 bg-gradient-to-br from-secondary to-primary rounded-full flex items-center justify-center mx-auto mb-2 md:mb-4">
                           <Check className="w-6 h-6 md:w-8 md:h-8 text-white" />
                         </div>
-                        <h3 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white mb-1 md:mb-2">Save Your Seed Phrase</h3>
-                        <p className="text-gray-600 dark:text-white/70 text-xs md:text-sm mb-2 md:mb-4">
+                        <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">Save Your Seed Phrase</h3>
+                        <p className="text-muted-foreground text-xs md:text-sm mb-2 md:mb-4">
                           Write down these 12 words in order. This is the only way to recover your wallet.
                         </p>
                       </div>
 
-                      <div className="bg-gray-900/50 border border-white/20 rounded-lg p-3 md:p-4">
+                      <div className="bg-background-900/50 border border-white/20 rounded-lg p-3 md:p-4">
                         <div className="grid grid-cols-3 gap-2 mb-4">
                           {generatedWallet.mnemonic?.split(' ').map((word, index) => (
-                            <div key={index} className="bg-white/10 rounded-lg p-2 text-center">
-                              <span className="text-gray-500 dark:text-white/60 text-xs block">{index + 1}</span>
-                              <span className="text-gray-800 dark:text-white text-sm font-medium">{word}</span>
+                            <div key={index} className="bg-background/10 rounded-lg p-2 text-center">
+                              <span className="text-muted-foreground text-xs block">{index + 1}</span>
+                              <span className="text-foreground text-sm font-medium">{word}</span>
                             </div>
                           ))}
                         </div>
-                        
+
                         <Button
                           onClick={() => {
                             if (generatedWallet.mnemonic) {
@@ -955,23 +1007,23 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                           }}
                           variant="outline"
                           size="sm"
-                          className="w-full bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white hover:bg-white/40 dark:hover:bg-white/20"
+                          className="w-full bg-background/30 border-border text-foreground hover:bg-background/40"
                         >
                           <Copy className="w-4 h-4 mr-2" />
                           Copy to Clipboard
                         </Button>
                       </div>
 
-                      <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-2 md:p-4">
-                        <p className="text-red-200 text-xs md:text-sm">
-                          <strong>Warning:</strong> Never share your seed phrase with anyone. Store it safely offline. 
+                      <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-2 md:p-4">
+                        <p className="text-destructive-foreground text-xs md:text-sm">
+                          <strong>Warning:</strong> Never share your seed phrase with anyone. Store it safely offline.
                           If you lose it, you'll lose access to your wallet forever.
                         </p>
                       </div>
 
                       <div className="space-y-2">
-                        <div className="bg-blue-500/10 border border-blue-500/20 rounded-lg p-3 md:p-4">
-                          <p className="text-blue-200 text-xs md:text-sm mb-3">
+                        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 md:p-4">
+                          <p className="text-primary-foreground text-xs md:text-sm mb-3">
                             <strong>Confirm:</strong> Type "I have saved my seed phrase" to continue
                           </p>
                           <Input
@@ -979,7 +1031,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                             placeholder="Type the confirmation phrase..."
                             value={confirmPhrase}
                             onChange={(e) => setConfirmPhrase(e.target.value)}
-                            className="bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white placeholder:text-gray-500 dark:placeholder:text-white/60 focus:border-primary/50 text-sm h-9"
+                            className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-9"
                           />
                         </div>
 
@@ -989,7 +1041,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                             setTimeout(() => handleConfirmSeedPhrase(), 100);
                           }}
                           disabled={isLoading || confirmPhrase.toLowerCase().trim() !== "i have saved my seed phrase"}
-                          className="w-full bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-semibold py-2 md:py-3 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="w-full bg-gradient-to-r from-secondary to-primary hover:from-secondary/90 hover:to-primary/90 text-white font-semibold py-2 md:py-3 text-sm md:text-base disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {isLoading ? "Creating Wallet..." : "Create Wallet"}
                         </Button>
@@ -1000,7 +1052,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                             setTimeout(() => handleBackToCreateWallet(), 100);
                           }}
                           variant="outline"
-                          className="w-full bg-white/30 dark:bg-white/10 border-gray-300 dark:border-white/20 text-gray-800 dark:text-white hover:bg-white/40 dark:hover:bg-white/20"
+                          className="w-full bg-background/30 border-border text-foreground hover:bg-background/40"
                         >
                           Back
                         </Button>
@@ -1013,7 +1065,7 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
           )}
 
           {/* Bottom Text */}
-          <p className="text-center text-white/50 text-xs md:text-sm mt-4 md:mt-6">
+          <p className="text-center text-muted-foreground text-xs md:text-sm mt-4 md:mt-6">
             Built on blockchain technology
           </p>
         </div>

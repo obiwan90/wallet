@@ -126,7 +126,7 @@ export function WalletManager() {
   };
 
   const downloadBackup = () => {
-    if (!newWalletData) return;
+    if (!newWalletData || typeof window === 'undefined') return;
 
     const backup = {
       mnemonic: newWalletData.mnemonic,

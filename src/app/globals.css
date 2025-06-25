@@ -50,7 +50,7 @@
   --red-crayola: #e84855;
   --brown-sugar: #b56b45;
   --delft-blue: #2b3a67;
-  
+
   /* Light theme variables using palette colors */
   --background: #fefcf0;
   --foreground: var(--delft-blue);
@@ -126,10 +126,23 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+    transition-property: background-color, border-color, text-decoration-color, fill, stroke;
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  html {
+    @apply scroll-smooth;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: "Comic Sans MS", "Chalkboard SE", cursive;
+    transition: background-color 200ms ease-in-out;
+  }
+
+  /* 主题过渡动画 */
+  .theme-transition * {
+    transition: background-color 200ms ease-in-out, border-color 200ms ease-in-out !important;
   }
 }
