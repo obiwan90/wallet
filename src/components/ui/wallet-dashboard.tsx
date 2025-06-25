@@ -367,7 +367,7 @@ export function WalletDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6">
       <motion.div
         ref={containerRef}
         className="max-w-7xl mx-auto space-y-6"

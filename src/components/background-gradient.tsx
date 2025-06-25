@@ -20,59 +20,40 @@ export const BackgroundGradient = ({
   const { theme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
-  // Theme-aware color configurations using actual color values from CSS variables
-  const getThemeColors = () => {
-    // 服务器端渲染时返回固定的默认颜色，避免水合不匹配
-    if (typeof window === 'undefined' || !mounted) {
-      // 总是返回浅色主题的默认颜色，避免SSR/CSR不匹配
-      return {
-        gradientBackgroundStart: 'hsl(45 100% 97%)',
-        gradientBackgroundEnd: 'hsl(45 20% 95%)',
-        firstColor: '#fffd82',
-        secondColor: '#ff9b71',
-        thirdColor: '#e84855',
-        fourthColor: '#b56b45',
-        fifthColor: '#2b3a67',
-        pointerColor: '#e84855',
-      };
-    }
+  // 为了避免水合不匹配，始终使用固定的默认颜色配置
+  const getDefaultColors = () => ({
+    gradientBackgroundStart: '#fefcf0',
+    gradientBackgroundEnd: '#f8f6ea',
+    firstColor: '#fffd82',
+    secondColor: '#ff9b71',
+    thirdColor: '#e84855',
+    fourthColor: '#b56b45',
+    fifthColor: '#2b3a67',
+    pointerColor: '#e84855',
+  });
 
-    const root = document.documentElement;
-    const getColorValue = (varName: string) => {
-      return getComputedStyle(root).getPropertyValue(varName).trim();
-    };
+  const getDarkColors = () => ({
+    gradientBackgroundStart: '#0f0f23',
+    gradientBackgroundEnd: '#09090f',
+    firstColor: '#ff9b71',
+    secondColor: '#b56b45',
+    thirdColor: '#e84855',
+    fourthColor: '#fffd82',
+    fifthColor: '#2b3a67',
+    pointerColor: '#ff9b71',
+  });
 
-    if (theme === 'dark') {
-      return {
-        gradientBackgroundStart: `hsl(${getColorValue('--background')})`,
-        gradientBackgroundEnd: `hsl(${getColorValue('--muted')})`,
-        firstColor: getColorValue('--atomic-tangerine') || '#ff9b71',
-        secondColor: getColorValue('--brown-sugar') || '#b56b45',
-        thirdColor: getColorValue('--red-crayola') || '#e84855',
-        fourthColor: getColorValue('--icterine') || '#fffd82',
-        fifthColor: getColorValue('--delft-blue') || '#2b3a67',
-        pointerColor: getColorValue('--atomic-tangerine') || '#ff9b71',
-      };
-    } else {
-      return {
-        gradientBackgroundStart: `hsl(${getColorValue('--background')})`,
-        gradientBackgroundEnd: `hsl(${getColorValue('--muted')})`,
-        firstColor: getColorValue('--icterine') || '#fffd82',
-        secondColor: getColorValue('--atomic-tangerine') || '#ff9b71',
-        thirdColor: getColorValue('--red-crayola') || '#e84855',
-        fourthColor: getColorValue('--brown-sugar') || '#b56b45',
-        fifthColor: getColorValue('--delft-blue') || '#2b3a67',
-        pointerColor: getColorValue('--red-crayola') || '#e84855',
-      };
-    }
-  };
-
-  const [colors, setColors] = React.useState(() => getThemeColors());
+  const [colors, setColors] = React.useState(getDefaultColors);
 
   // 客户端挂载后更新颜色
   React.useEffect(() => {
-    if (mounted) {
-      setColors(getThemeColors());
+    if (!mounted) return;
+
+    // 使用固定的颜色配置而不是读取CSS变量
+    if (theme === 'dark') {
+      setColors(getDarkColors());
+    } else {
+      setColors(getDefaultColors());
     }
   }, [mounted, theme]);
 
@@ -129,8 +110,9 @@ export const BackgroundGradient = ({
     }
   }, []);
 
-  // 在组件挂载之前显示占位符，避免水合不匹配
+  // 在组件挂载之前显示和挂载后相同的结构，只是使用默认颜色
   if (!mounted) {
+    const defaultColors = getDefaultColors();
     return (
       <div
         className={cn(
@@ -138,15 +120,14 @@ export const BackgroundGradient = ({
           containerClassName
         )}
         style={{
-          background: `linear-gradient(40deg, hsl(45 100% 97%), hsl(45 20% 95%))`
+          background: `linear-gradient(40deg, ${defaultColors.gradientBackgroundStart}, ${defaultColors.gradientBackgroundEnd})`
         }}
       >
-        {/* 简化的背景，只在SSR时显示 */}
         <div className="absolute inset-0 gradients-container h-full w-full blur-lg">
           <div
             className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveVertical_30s_ease_infinite]"
             style={{
-              background: `radial-gradient(circle at center, #fffd82cc 0%, #fffd8200 50%)`,
+              background: `radial-gradient(circle at center, ${defaultColors.firstColor}cc 0%, ${defaultColors.firstColor}00 50%)`,
               mixBlendMode: "hard-light" as any,
               transformOrigin: "center center"
             }}

@@ -27,7 +27,23 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              try {
+                const theme = localStorage.getItem('wallet-theme') || 'light';
+                document.documentElement.className = theme;
+                document.documentElement.style.colorScheme = theme;
+              } catch (e) {
+                document.documentElement.className = 'light';
+                document.documentElement.style.colorScheme = 'light';
+              }
+            `,
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
@@ -35,7 +51,9 @@ export default function RootLayout({
           attribute="class"
           defaultTheme="light"
           enableSystem={false}
-          disableTransitionOnChange={false}
+          disableTransitionOnChange={true}
+          storageKey="wallet-theme"
+          forcedTheme={undefined}
         >
           <Web3Provider>
             <BackgroundGradient>
