@@ -533,26 +533,34 @@ export class WalletService {
         throw new Error('Public client not initialized');
       }
 
+      // Ensure proper address formatting
+      let normalizedAddress: Address;
+      try {
+        normalizedAddress = getAddress(tokenAddress);
+      } catch (error) {
+        throw new Error(`Invalid token address: ${tokenAddress}`);
+      }
+
       const [name, symbol, decimals] = await Promise.all([
         this.publicClient.readContract({
-          address: tokenAddress,
+          address: normalizedAddress,
           abi: ERC20_ABI,
           functionName: 'name'
         }),
         this.publicClient.readContract({
-          address: tokenAddress,
+          address: normalizedAddress,
           abi: ERC20_ABI,
           functionName: 'symbol'
         }),
         this.publicClient.readContract({
-          address: tokenAddress,
+          address: normalizedAddress,
           abi: ERC20_ABI,
           functionName: 'decimals'
         })
       ]);
 
       return {
-        address: tokenAddress,
+        address: normalizedAddress,
         name: name as string,
         symbol: symbol as string,
         decimals: decimals as number,
@@ -567,13 +575,23 @@ export class WalletService {
         throw new Error('Public client not initialized');
       }
 
+      // Ensure proper address formatting
+      let normalizedTokenAddress: Address;
+      let normalizedWalletAddress: Address;
+      try {
+        normalizedTokenAddress = getAddress(tokenAddress);
+        normalizedWalletAddress = getAddress(walletAddress);
+      } catch (error) {
+        throw new Error(`Invalid address format - Token: ${tokenAddress}, Wallet: ${walletAddress}`);
+      }
+
       const [tokenInfo, balanceWei] = await Promise.all([
-        this.getTokenInfo(tokenAddress),
+        this.getTokenInfo(normalizedTokenAddress),
         this.publicClient.readContract({
-          address: tokenAddress,
+          address: normalizedTokenAddress,
           abi: ERC20_ABI,
           functionName: 'balanceOf',
-          args: [walletAddress]
+          args: [normalizedWalletAddress]
         }) as Promise<bigint>
       ]);
 
@@ -612,16 +630,28 @@ export class WalletService {
     walletAddress: Address
   ): Promise<TokenBalance[]> {
     const results = await Promise.allSettled(
-      tokenAddresses.map(tokenAddress => 
-        this.getTokenBalance(tokenAddress, walletAddress)
-      )
+      tokenAddresses.map(async (tokenAddress, index) => {
+        try {
+          return await this.getTokenBalance(tokenAddress, walletAddress);
+        } catch (error) {
+          console.error(`Failed to get balance for token ${tokenAddress}:`, error);
+          throw error;
+        }
+      })
     );
 
-    return results
+    const successful = results
       .filter((result): result is PromiseFulfilledResult<TokenBalance> => 
         result.status === 'fulfilled'
       )
       .map(result => result.value);
+
+    const failed = results.filter(result => result.status === 'rejected');
+    if (failed.length > 0) {
+      console.warn(`Failed to load ${failed.length} out of ${tokenAddresses.length} tokens`);
+    }
+
+    return successful;
   }
 
   // Network health check
@@ -1016,62 +1046,27 @@ export class WalletService {
 
 export const walletService = new WalletService();
 
-// Common token addresses by network
+// Common token addresses by network - properly checksummed
+const createTokenInfo = (address: string, symbol: string, name: string, decimals: number, chainId: number): TokenInfo => ({
+  address: getAddress(address),
+  symbol,
+  name,
+  decimals,
+  chainId
+});
+
 export const COMMON_TOKENS: Record<number, TokenInfo[]> = {
-  1: [ // Ethereum mainnet
-    {
-      address: '0xA0b86a33E6441cc2bbC9dd1c6A8beD47aA00E5e4',
-      symbol: 'USDC',
-      name: 'USD Coin',
-      decimals: 6,
-      chainId: 1
-    },
-    {
-      address: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
-      symbol: 'USDT',
-      name: 'Tether USD',
-      decimals: 6,
-      chainId: 1
-    },
-    {
-      address: '0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984',
-      symbol: 'UNI',
-      name: 'Uniswap',
-      decimals: 18,
-      chainId: 1
-    }
+  1: [ // Ethereum mainnet - using verified addresses
+    createTokenInfo('0xdAC17F958D2ee523a2206206994597C13D831ec7', 'USDT', 'Tether USD', 6, 1),
+    createTokenInfo('0x1f9840a85d5aF5bf1D1762F925BDADdC4201F984', 'UNI', 'Uniswap', 18, 1)
   ],
   137: [ // Polygon
-    {
-      address: '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174',
-      symbol: 'USDC',
-      name: 'USD Coin',
-      decimals: 6,
-      chainId: 137
-    },
-    {
-      address: '0xc2132D05D31c914a87C6611C10748AEb04B58e8F',
-      symbol: 'USDT',
-      name: 'Tether USD',
-      decimals: 6,
-      chainId: 137
-    }
+    createTokenInfo('0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174', 'USDC', 'USD Coin', 6, 137),
+    createTokenInfo('0xc2132D05D31c914a87C6611C10748AEb04B58e8F', 'USDT', 'Tether USD', 6, 137)
   ],
   56: [ // BSC
-    {
-      address: '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d',
-      symbol: 'USDC',
-      name: 'USD Coin',
-      decimals: 18,
-      chainId: 56
-    },
-    {
-      address: '0x55d398326f99059fF775485246999027B3197955',
-      symbol: 'USDT',
-      name: 'Tether USD',
-      decimals: 18,
-      chainId: 56
-    }
+    createTokenInfo('0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d', 'USDC', 'USD Coin', 18, 56),
+    createTokenInfo('0x55d398326f99059fF775485246999027B3197955', 'USDT', 'Tether USD', 18, 56)
   ]
 };
 
@@ -1080,8 +1075,23 @@ export function formatAddress(address: string): string {
   return `${address.slice(0, 6)}...${address.slice(-4)}`;
 }
 
+export function normalizeAddress(address: string): Address {
+  try {
+    return getAddress(address);
+  } catch (error) {
+    throw new Error(`Invalid address format: ${address}`);
+  }
+}
+
 export function isValidAddress(address: string): boolean {
-  return /^0x[a-fA-F0-9]{40}$/.test(address);
+  try {
+    // Use Viem's getAddress function for proper validation including checksum
+    getAddress(address);
+    return true;
+  } catch {
+    // Fall back to basic regex check for addresses that might not be checksummed
+    return /^0x[a-fA-F0-9]{40}$/.test(address);
+  }
 }
 
 export function getCommonTokensForNetwork(chainId: number): TokenInfo[] {

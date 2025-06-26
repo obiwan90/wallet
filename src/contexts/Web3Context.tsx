@@ -52,11 +52,18 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       const tokenAddresses = commonTokens.map(token => token.address);
 
       if (tokenAddresses.length > 0) {
-        const balances = await walletService.getMultipleTokenBalances(tokenAddresses, wallet.address);
-        setTokenBalances(balances);
+        try {
+          const balances = await walletService.getMultipleTokenBalances(tokenAddresses, wallet.address);
+          setTokenBalances(balances);
+        } catch (tokenError) {
+          console.error('Failed to load token balances:', tokenError);
+          // Set empty array on error to prevent UI issues
+          setTokenBalances([]);
+        }
       }
     } catch (error) {
       console.error('Token balance refresh failed:', error);
+      setTokenBalances([]);
     } finally {
       setIsLoadingTokens(false);
     }
