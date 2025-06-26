@@ -33,23 +33,23 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               try {
-                const theme = localStorage.getItem('wallet-theme') || 'light';
+                const theme = localStorage.getItem('wallet-theme') || 'dark';
                 document.documentElement.className = theme;
                 document.documentElement.style.colorScheme = theme;
               } catch (e) {
-                document.documentElement.className = 'light';
-                document.documentElement.style.colorScheme = 'light';
+                document.documentElement.className = 'dark';
+                document.documentElement.style.colorScheme = 'dark';
               }
             `,
           }}
         />
       </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased relative min-h-screen`}
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           enableSystem={false}
           disableTransitionOnChange={true}
           storageKey="wallet-theme"

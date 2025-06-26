@@ -110,115 +110,89 @@ export const BackgroundGradient = ({
     }
   }, []);
 
-  // 在组件挂载之前显示和挂载后相同的结构，只是使用默认颜色
-  if (!mounted) {
-    const defaultColors = getDefaultColors();
-    return (
+  // 使用一个wrapper让内容正常流动，背景fixed覆盖
+  return (
+    <div className={cn("relative", containerClassName)}>
+      {/* Fixed Background Layer */}
       <div
-        className={cn(
-          "fixed inset-0 z-0 overflow-hidden",
-          containerClassName
-        )}
+        className="fixed inset-0 z-0"
         style={{
-          background: `linear-gradient(40deg, ${defaultColors.gradientBackgroundStart}, ${defaultColors.gradientBackgroundEnd})`
+          background: `linear-gradient(40deg, ${mounted ? colors.gradientBackgroundStart : '#fefcf0'}, ${mounted ? colors.gradientBackgroundEnd : '#f8f6ea'})`
         }}
       >
-        <div className="absolute inset-0 gradients-container h-full w-full blur-lg">
-          <div
-            className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveVertical_30s_ease_infinite]"
-            style={{
-              background: `radial-gradient(circle at center, ${defaultColors.firstColor}cc 0%, ${defaultColors.firstColor}00 50%)`,
-              mixBlendMode: "hard-light" as any,
-              transformOrigin: "center center"
-            }}
-          />
-        </div>
-        <div className={cn("relative z-10", className)}>{children}</div>
-      </div>
-    );
-  }
+        <svg className="hidden">
+          <defs>
+            <filter id="blurMe">
+              <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+              <feColorMatrix
+                in="blur"
+                mode="matrix"
+                values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8"
+                result="goo"
+              />
+              <feBlend in="SourceGraphic" in2="goo" />
+            </filter>
+          </defs>
+        </svg>
 
-  return (
-    <div
-      className={cn(
-        "fixed inset-0 z-0 overflow-hidden",
-        containerClassName
-      )}
-      style={{
-        background: `linear-gradient(40deg, ${colors.gradientBackgroundStart}, ${colors.gradientBackgroundEnd})`
-      }}
-    >
-      <svg className="hidden">
-        <defs>
-          <filter id="blurMe">
-            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
-            <feColorMatrix
-              in="blur"
-              mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 18 -8"
-              result="goo"
+        {mounted && (
+          <div className={cn("absolute inset-0 gradients-container h-full w-full blur-lg", isSafari ? "blur-2xl" : "[filter:url(#blurMe)_blur(40px)]")}>
+            <div
+              className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveVertical_30s_ease_infinite]"
+              style={{
+                background: `radial-gradient(circle at center, ${colors.firstColor}cc 0%, ${colors.firstColor}00 50%)`,
+                mixBlendMode: "hard-light" as any,
+                transformOrigin: "center center"
+              }}
             />
-            <feBlend in="SourceGraphic" in2="goo" />
-          </filter>
-        </defs>
-      </svg>
-
-      {/* Background Animation Layer */}
-      <div className={cn("absolute inset-0 gradients-container h-full w-full blur-lg", isSafari ? "blur-2xl" : "[filter:url(#blurMe)_blur(40px)]")}>
-        <div
-          className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveVertical_30s_ease_infinite]"
-          style={{
-            background: `radial-gradient(circle at center, ${colors.firstColor}cc 0%, ${colors.firstColor}00 50%)`,
-            mixBlendMode: "hard-light" as any,
-            transformOrigin: "center center"
-          }}
-        />
-        <div
-          className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_20s_reverse_infinite]"
-          style={{
-            background: `radial-gradient(circle at center, ${colors.secondColor}cc 0%, ${colors.secondColor}00 50%)`,
-            mixBlendMode: "hard-light" as any,
-            transformOrigin: "calc(50% - 400px)"
-          }}
-        />
-        <div
-          className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_40s_linear_infinite]"
-          style={{
-            background: `radial-gradient(circle at center, ${colors.thirdColor}cc 0%, ${colors.thirdColor}00 50%)`,
-            mixBlendMode: "hard-light" as any,
-            transformOrigin: "calc(50% + 400px)"
-          }}
-        />
-        <div
-          className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-70 animate-[moveHorizontal_40s_ease_infinite]"
-          style={{
-            background: `radial-gradient(circle at center, ${colors.fourthColor}cc 0%, ${colors.fourthColor}00 50%)`,
-            mixBlendMode: "hard-light" as any,
-            transformOrigin: "calc(50% - 200px)"
-          }}
-        />
-        <div
-          className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_20s_ease_infinite]"
-          style={{
-            background: `radial-gradient(circle at center, ${colors.fifthColor}cc 0%, ${colors.fifthColor}00 50%)`,
-            mixBlendMode: "hard-light" as any,
-            transformOrigin: "calc(50% - 800px) calc(50% + 800px)"
-          }}
-        />
-        {interactive && (
-          <div
-            ref={interactiveRef}
-            onMouseMove={handleMouseMove}
-            className="absolute w-full h-full -top-1/2 -left-1/2 opacity-70"
-            style={{
-              background: `radial-gradient(circle at center, ${colors.pointerColor}cc 0%, ${colors.pointerColor}00 50%)`,
-              mixBlendMode: "hard-light" as any
-            }}
-          />
+            <div
+              className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_20s_reverse_infinite]"
+              style={{
+                background: `radial-gradient(circle at center, ${colors.secondColor}cc 0%, ${colors.secondColor}00 50%)`,
+                mixBlendMode: "hard-light" as any,
+                transformOrigin: "calc(50% - 400px)"
+              }}
+            />
+            <div
+              className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_40s_linear_infinite]"
+              style={{
+                background: `radial-gradient(circle at center, ${colors.thirdColor}cc 0%, ${colors.thirdColor}00 50%)`,
+                mixBlendMode: "hard-light" as any,
+                transformOrigin: "calc(50% + 400px)"
+              }}
+            />
+            <div
+              className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-70 animate-[moveHorizontal_40s_ease_infinite]"
+              style={{
+                background: `radial-gradient(circle at center, ${colors.fourthColor}cc 0%, ${colors.fourthColor}00 50%)`,
+                mixBlendMode: "hard-light" as any,
+                transformOrigin: "calc(50% - 200px)"
+              }}
+            />
+            <div
+              className="absolute w-[80%] h-[80%] top-[calc(50%-40%)] left-[calc(50%-40%)] opacity-100 animate-[moveInCircle_20s_ease_infinite]"
+              style={{
+                background: `radial-gradient(circle at center, ${colors.fifthColor}cc 0%, ${colors.fifthColor}00 50%)`,
+                mixBlendMode: "hard-light" as any,
+                transformOrigin: "calc(50% - 800px) calc(50% + 800px)"
+              }}
+            />
+            {interactive && (
+              <div
+                ref={interactiveRef}
+                onMouseMove={handleMouseMove}
+                className="absolute w-full h-full -top-1/2 -left-1/2 opacity-70"
+                style={{
+                  background: `radial-gradient(circle at center, ${colors.pointerColor}cc 0%, ${colors.pointerColor}00 50%)`,
+                  mixBlendMode: "hard-light" as any
+                }}
+              />
+            )}
+          </div>
         )}
       </div>
 
-      {/* Content Layer */}
+      {/* Content Layer - Normal Document Flow */}
       <div className={cn("relative z-10", className)}>{children}</div>
 
       <style jsx global>{`

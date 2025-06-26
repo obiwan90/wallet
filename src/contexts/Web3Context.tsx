@@ -1,14 +1,20 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { WalletInfo, walletService } from '@/lib/web3';
+import { WalletInfo, walletService, TokenBalance, getCommonTokensForNetwork } from '@/lib/web3';
 
 interface Web3ContextType {
   wallet: WalletInfo | null;
   isConnecting: boolean;
   isConnected: boolean;
+  tokenBalances: TokenBalance[];
+  isLoadingTokens: boolean;
+  currentUserSession: { accountId: string; password: string } | null;
   setWallet: (wallet: WalletInfo | null) => void;
+  setCurrentUserSession: (session: { accountId: string; password: string } | null) => void;
   refreshBalance: () => Promise<void>;
+  refreshTokenBalances: () => Promise<void>;
+  networkHealth: { chainId: number; blockNumber: bigint; healthy: boolean } | null;
 }
 
 const Web3Context = createContext<Web3ContextType | undefined>(undefined);
@@ -16,16 +22,71 @@ const Web3Context = createContext<Web3ContextType | undefined>(undefined);
 export function Web3Provider({ children }: { children: React.ReactNode }) {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [tokenBalances, setTokenBalances] = useState<TokenBalance[]>([]);
+  const [isLoadingTokens, setIsLoadingTokens] = useState(false);
+  const [networkHealth, setNetworkHealth] = useState<{ chainId: number; blockNumber: bigint; healthy: boolean } | null>(null);
+  const [currentUserSession, setCurrentUserSession] = useState<{ accountId: string; password: string } | null>(null);
 
   const refreshBalance = async () => {
     if (!wallet) return;
     try {
-      const balance = await walletService.getBalance(wallet.address);
-      setWallet(prev => prev ? { ...prev, balance } : null);
+      setIsConnecting(true);
+      const balanceResult = await walletService.getBalanceWithRetry(wallet.address);
+      if (balanceResult.success) {
+        setWallet(prev => prev ? { ...prev, balance: balanceResult.balance } : null);
+      } else {
+        console.warn('Balance refresh failed:', balanceResult.error);
+      }
     } catch (error) {
-      // Silently fail balance refresh
+      console.error('Balance refresh error:', error);
+    } finally {
+      setIsConnecting(false);
     }
   };
+
+  const refreshTokenBalances = async () => {
+    if (!wallet) return;
+    try {
+      setIsLoadingTokens(true);
+      const commonTokens = getCommonTokensForNetwork(wallet.chainId);
+      const tokenAddresses = commonTokens.map(token => token.address);
+
+      if (tokenAddresses.length > 0) {
+        const balances = await walletService.getMultipleTokenBalances(tokenAddresses, wallet.address);
+        setTokenBalances(balances);
+      }
+    } catch (error) {
+      console.error('Token balance refresh failed:', error);
+    } finally {
+      setIsLoadingTokens(false);
+    }
+  };
+
+  // Check network health periodically
+  useEffect(() => {
+    const checkHealth = async () => {
+      try {
+        const health = await walletService.checkNetworkHealth();
+        setNetworkHealth(health);
+      } catch (error) {
+        console.error('Network health check failed:', error);
+      }
+    };
+
+    checkHealth();
+    const interval = setInterval(checkHealth, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [wallet?.chainId]);
+
+  // Auto-refresh token balances when wallet changes
+  useEffect(() => {
+    if (wallet) {
+      refreshTokenBalances();
+    } else {
+      setTokenBalances([]);
+    }
+  }, [wallet?.address, wallet?.chainId]);
 
   // Custom setWallet that respects preferred network
   const setWalletWithNetwork = (walletInfo: WalletInfo | null) => {
@@ -38,11 +99,12 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         if (chainId !== walletInfo.chainId) {
           walletService.switchNetwork(chainId).then((success) => {
             if (success) {
-              setWallet({
+              const updatedWallet = {
                 ...walletInfo,
                 chainId,
                 chain: walletService.getCurrentChain()
-              });
+              };
+              setWallet(updatedWallet);
               // Clear the preference after applying it
               localStorage.removeItem('preferredNetwork');
             } else {
@@ -62,8 +124,14 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         wallet,
         isConnecting,
         isConnected: !!wallet,
+        tokenBalances,
+        isLoadingTokens,
+        currentUserSession,
         setWallet: setWalletWithNetwork,
+        setCurrentUserSession,
         refreshBalance,
+        refreshTokenBalances,
+        networkHealth,
       }}
     >
       {children}

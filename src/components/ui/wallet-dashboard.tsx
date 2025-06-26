@@ -30,7 +30,11 @@ import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { NetworkSelector } from '@/components/network-selector';
+import { SendModal } from '@/components/SendModal';
+import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { useWeb3 } from '@/contexts/Web3Context';
+import { NETWORKS } from '@/lib/web3';
 
 // Hook for click outside functionality
 function useClickOutside<T extends HTMLElement = HTMLElement>(
@@ -65,7 +69,7 @@ function useClickOutside<T extends HTMLElement = HTMLElement>(
 
 // Button Group Component
 const buttonGroupVariants = {
-  default: "flex sm:items-center max-sm:gap-1 max-sm:flex-col [&>*:focus-within]:ring-1 [&>*:focus-within]:z-10 [&>*]:ring-offset-0 sm:[&>*:not(:first-child)]:rounded-l-none sm:[&>*:not(:last-child)]:rounded-r-none [&>*]:h-10 [&>*]:px-4 [&>*]:py-2",
+  default: "flex sm:items-center max-sm:gap-2 max-sm:flex-col [&>*:focus-within]:ring-1 [&>*:focus-within]:z-10 [&>*]:ring-offset-0 sm:[&>*:not(:first-child)]:rounded-l-none sm:[&>*:not(:last-child)]:rounded-r-none [&>*]:h-11 sm:[&>*]:h-12 [&>*]:px-3 sm:[&>*]:px-4 [&>*]:py-2 sm:[&>*]:py-3",
 };
 
 interface ButtonGroupProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -271,17 +275,78 @@ const mockWalletData: WalletData = {
 
 // Main Wallet Dashboard Component
 export function WalletDashboard() {
-  const { setWallet } = useWeb3();
-  const [walletData] = useState<WalletData>(mockWalletData);
+  const {
+    wallet,
+    setWallet,
+    tokenBalances,
+    isLoadingTokens,
+    refreshBalance,
+    refreshTokenBalances,
+    networkHealth
+  } = useWeb3();
+
+  const [walletData] = useState<WalletData>(mockWalletData); // Keep mock for transactions for now
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
   const [selectedTab, setSelectedTab] = useState<'assets' | 'transactions'>('assets');
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showSendModal, setShowSendModal] = useState(false);
+  const [selectedAssetForSend, setSelectedAssetForSend] = useState<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
   const handleLogout = () => {
     setWallet(null);
+  };
+
+  const handleRefresh = async () => {
+    if (!wallet) return;
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refreshBalance(), refreshTokenBalances()]);
+    } catch (error) {
+      console.error('Failed to refresh data:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // Calculate total portfolio value from real data
+  const calculateTotalValue = () => {
+    if (!wallet) return 0;
+
+    let total = parseFloat(wallet.balance) * 2500; // Assume ETH price for native token
+
+    // Add token values (using mock prices for now)
+    tokenBalances.forEach(tokenBalance => {
+      const balance = parseFloat(tokenBalance.formattedBalance);
+      if (tokenBalance.token.symbol === 'USDC' || tokenBalance.token.symbol === 'USDT') {
+        total += balance; // Stablecoins = $1
+      } else {
+        total += balance * 100; // Other tokens mock price
+      }
+    });
+
+    return total;
+  };
+
+  const totalValue = calculateTotalValue();
+  const networkConfig = wallet ? NETWORKS[wallet.chainId as keyof typeof NETWORKS] : null;
+
+  const handleSendClick = (asset?: any) => {
+    if (asset) {
+      setSelectedAssetForSend(asset);
+    } else if (wallet && networkConfig) {
+      // Default to native token
+      setSelectedAssetForSend({
+        symbol: networkConfig.symbol,
+        name: networkConfig.name,
+        balance: wallet.balance,
+        isNative: true
+      });
+    }
+    setShowSendModal(true);
   };
 
   // Mouse tracking for glow effects
@@ -367,42 +432,59 @@ export function WalletDashboard() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-6">
+    <div className="min-h-screen p-4 md:p-6 lg:p-8">
       <motion.div
         ref={containerRef}
-        className="max-w-7xl mx-auto space-y-6"
+        className="max-w-7xl mx-auto space-y-4 md:space-y-6 lg:space-y-8 pb-8"
         variants={containerVariants}
         initial="hidden"
         animate="visible"
         onMouseEnter={() => setIsHovering(true)}
         onMouseLeave={() => setIsHovering(false)}
       >
-        {/* Header */}
+        {/* Header - 3-tier responsive design */}
         <motion.div
-          className="flex items-center justify-between"
+          className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
           variants={itemVariants}
         >
-          <div className="flex items-center gap-4">
-            <motion.div
-              className="w-12 h-12 bg-gradient-to-r from-primary to-accent rounded-2xl flex items-center justify-center"
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-            >
-              <Wallet className="w-6 h-6 text-white" />
-            </motion.div>
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">My Wallet</h1>
-              <p className="text-muted-foreground">Manage your digital assets</p>
+          <div className="flex items-center gap-3 md:gap-4 lg:gap-5">
+            <div className="flex-1">
+              <div className="flex items-center gap-3">
+                <AccountSwitcher />
+              </div>
+              <p className="text-muted-foreground text-sm md:text-base lg:text-lg mt-1">Manage your digital assets</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+            {/* Network info and selector */}
+            {wallet && networkConfig && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
+                  <div
+                    className="w-2 h-2 rounded-full"
+                    style={{ backgroundColor: networkConfig.color }}
+                  />
+                  <span className="text-sm font-medium">{networkConfig.name}</span>
+                  {networkHealth && !networkHealth.healthy && (
+                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Network issues" />
+                  )}
+                </div>
+                <NetworkSelector />
+              </div>
+            )}
+
             <ThemeToggle />
-            <Button variant="outline" size="icon">
-              <Settings className="w-4 h-4" />
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
             </Button>
             <Button variant="outline" size="icon">
-              <RefreshCw className="w-4 h-4" />
+              <Settings className="w-4 h-4" />
             </Button>
             <Button
               variant="outline"
@@ -449,33 +531,41 @@ export function WalletDashboard() {
                 </Button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="md:col-span-2">
-                  <div className="mb-2">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+                <div className="lg:col-span-2">
+                  <div className="mb-3 sm:mb-4">
                     <motion.div
-                      className="text-4xl font-bold text-foreground"
+                      className="text-2xl sm:text-3xl md:text-4xl font-bold text-foreground"
                       initial={{ scale: 0.8, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       transition={{ delay: 0.2 }}
                     >
-                      {isBalanceVisible ? formatCurrency(walletData.totalBalance) : '••••••'}
+                      {isBalanceVisible ? formatCurrency(totalValue) : '••••••'}
                     </motion.div>
-                    <div className="flex items-center gap-2 mt-1">
-                      <Badge
-                        variant={walletData.change24h >= 0 ? "default" : "destructive"}
-                        className="flex items-center gap-1"
-                      >
-                        {walletData.change24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                        {walletData.change24h >= 0 ? '+' : ''}{walletData.change24h}%
-                      </Badge>
-                      <span className="text-sm text-muted-foreground">24h change</span>
+                    <div className="flex flex-wrap items-center gap-2 mt-2">
+                      {wallet && (
+                        <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
+                          <span>{networkConfig?.symbol} Balance: {isBalanceVisible ? wallet.balance : '••••'}</span>
+                          {isLoadingTokens && (
+                            <div className="animate-spin w-3 h-3 border border-gray-300 border-t-primary rounded-full" />
+                          )}
+                        </div>
+                      )}
                     </div>
+                    {wallet && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        Address: {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className="flex flex-col gap-3">
                   <ButtonGroup>
-                    <Button className="flex-1">
+                    <Button
+                      className="flex-1"
+                      onClick={() => handleSendClick()}
+                    >
                       <Send className="w-4 h-4 mr-2" />
                       Send
                     </Button>
@@ -534,62 +624,176 @@ export function WalletDashboard() {
               initial="hidden"
               animate="visible"
               exit="hidden"
-              className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+              className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-6"
             >
               {/* Assets List */}
-              <div className="lg:col-span-2">
-                <Card className="p-6">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold">Your Assets</h3>
-                    <Button variant="outline" size="sm">
+              <div className="xl:col-span-2">
+                <Card className="p-4 sm:p-6">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-6 mb-4 sm:mb-6">
+                    <h3 className="text-lg sm:text-xl font-semibold">Your Assets</h3>
+                    <Button variant="outline" size="sm" className="w-full sm:w-auto">
                       <Plus className="w-4 h-4 mr-2" />
                       Add Asset
                     </Button>
                   </div>
 
-                  <div className="space-y-4">
-                    {walletData.assets.map((asset, index) => (
+                  <div className="space-y-3 sm:space-y-4">
+                    {/* Native Token */}
+                    {wallet && networkConfig && (
+                      <motion.div
+                        className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        whileHover={{ scale: 1.01 }}
+                        onClick={() => handleSendClick({
+                          symbol: networkConfig.symbol,
+                          name: networkConfig.name,
+                          balance: wallet.balance,
+                          isNative: true
+                        })}
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-lg sm:text-2xl flex-shrink-0 font-bold text-white"
+                            style={{ backgroundColor: networkConfig.color }}
+                          >
+                            {networkConfig.symbol[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground text-sm sm:text-base">{networkConfig.symbol}</div>
+                            <div className="text-xs sm:text-sm text-muted-foreground truncate">{networkConfig.name}</div>
+                          </div>
+                        </div>
+
+                        <div className="text-right hidden sm:block">
+                          <div className="font-semibold text-sm sm:text-base">
+                            {isBalanceVisible ? wallet.balance : '••••'}
+                          </div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">
+                            {isBalanceVisible ? formatCurrency(parseFloat(wallet.balance) * 2500) : '••••'}
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <div className="font-semibold text-sm sm:text-base">
+                            $2,500
+                          </div>
+                          <div className="text-xs sm:text-sm flex items-center gap-1 justify-end text-primary">
+                            <TrendingUp className="w-3 h-3" />
+                            <span className="hidden sm:inline">+2.5%</span>
+                          </div>
+                        </div>
+
+                        <ChevronRight className="w-4 h-4 text-muted-foreground hidden sm:block" />
+                      </motion.div>
+                    )}
+
+                    {/* ERC-20 Tokens */}
+                    {tokenBalances.map((tokenBalance, index) => (
+                      <motion.div
+                        key={tokenBalance.token.address}
+                        className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: (index + 1) * 0.1 }}
+                        whileHover={{ scale: 1.01 }}
+                        onClick={() => handleSendClick({
+                          symbol: tokenBalance.token.symbol,
+                          name: tokenBalance.token.name,
+                          address: tokenBalance.token.address,
+                          decimals: tokenBalance.token.decimals,
+                          balance: tokenBalance.formattedBalance,
+                          isNative: false
+                        })}
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full flex items-center justify-center text-lg sm:text-2xl flex-shrink-0 font-bold">
+                            {tokenBalance.token.symbol[0]}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground text-sm sm:text-base">{tokenBalance.token.symbol}</div>
+                            <div className="text-xs sm:text-sm text-muted-foreground truncate">{tokenBalance.token.name}</div>
+                          </div>
+                        </div>
+
+                        <div className="text-right hidden sm:block">
+                          <div className="font-semibold text-sm sm:text-base">
+                            {isBalanceVisible ? tokenBalance.formattedBalance : '••••'}
+                          </div>
+                          <div className="text-xs sm:text-sm text-muted-foreground">
+                            {isBalanceVisible ? (
+                              tokenBalance.token.symbol === 'USDC' || tokenBalance.token.symbol === 'USDT'
+                                ? formatCurrency(parseFloat(tokenBalance.formattedBalance))
+                                : formatCurrency(parseFloat(tokenBalance.formattedBalance) * 100)
+                            ) : '••••'}
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <div className="font-semibold text-sm sm:text-base">
+                            {tokenBalance.token.symbol === 'USDC' || tokenBalance.token.symbol === 'USDT' ? '$1.00' : '$100'}
+                          </div>
+                          <div className="text-xs sm:text-sm flex items-center gap-1 justify-end text-primary">
+                            <TrendingUp className="w-3 h-3" />
+                            <span className="hidden sm:inline">+1.2%</span>
+                          </div>
+                        </div>
+
+                        <ChevronRight className="w-4 h-4 text-muted-foreground hidden sm:block" />
+                      </motion.div>
+                    ))}
+
+                    {/* Loading indicator for tokens */}
+                    {isLoadingTokens && (
+                      <div className="flex items-center justify-center p-4">
+                        <div className="animate-spin w-6 h-6 border-2 border-gray-300 border-t-primary rounded-full"></div>
+                        <span className="ml-2 text-sm text-muted-foreground">Loading tokens...</span>
+                      </div>
+                    )}
+
+                    {/* Fallback to mock data if no real tokens */}
+                    {!isLoadingTokens && tokenBalances.length === 0 && walletData.assets.map((asset, index) => (
                       <motion.div
                         key={asset.id}
-                        className="flex items-center justify-between p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
+                        className="flex items-center justify-between p-3 sm:p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: index * 0.1 }}
                         whileHover={{ scale: 1.01 }}
                       >
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full flex items-center justify-center text-2xl">
+                        <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full flex items-center justify-center text-lg sm:text-2xl flex-shrink-0">
                             {asset.icon}
                           </div>
-                          <div>
-                            <div className="font-semibold text-foreground">{asset.symbol}</div>
-                            <div className="text-sm text-muted-foreground">{asset.name}</div>
+                          <div className="min-w-0">
+                            <div className="font-semibold text-foreground text-sm sm:text-base">{asset.symbol}</div>
+                            <div className="text-xs sm:text-sm text-muted-foreground truncate">{asset.name}</div>
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <div className="font-semibold">
+                        <div className="text-right hidden sm:block">
+                          <div className="font-semibold text-sm sm:text-base">
                             {isBalanceVisible ? asset.balance : '••••'}
                           </div>
-                          <div className="text-sm text-muted-foreground">
+                          <div className="text-xs sm:text-sm text-muted-foreground">
                             {isBalanceVisible ? formatCurrency(asset.value) : '••••'}
                           </div>
                         </div>
 
-                        <div className="text-right">
-                          <div className="font-semibold">
+                        <div className="text-right flex-shrink-0">
+                          <div className="font-semibold text-sm sm:text-base">
                             {formatCurrency(asset.price)}
                           </div>
                           <div className={cn(
-                            "text-sm flex items-center gap-1",
+                            "text-xs sm:text-sm flex items-center gap-1 justify-end",
                             asset.change24h >= 0 ? "text-primary" : "text-destructive"
                           )}>
                             {asset.change24h >= 0 ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
-                            {asset.change24h >= 0 ? '+' : ''}{asset.change24h}%
+                            <span className="hidden sm:inline">{asset.change24h >= 0 ? '+' : ''}{asset.change24h}%</span>
                           </div>
                         </div>
 
-                        <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                        <ChevronRight className="w-4 h-4 text-muted-foreground hidden sm:block" />
                       </motion.div>
                     ))}
                   </div>
@@ -709,6 +913,13 @@ export function WalletDashboard() {
           )}
         </AnimatePresence>
       </motion.div>
+
+      {/* Send Modal */}
+      <SendModal
+        isOpen={showSendModal}
+        onClose={() => setShowSendModal(false)}
+        selectedAsset={selectedAssetForSend}
+      />
     </div>
   );
 }

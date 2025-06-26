@@ -133,16 +133,54 @@
 
   html {
     @apply scroll-smooth;
+    overflow-x: hidden;
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: "Comic Sans MS", "Chalkboard SE", cursive;
     transition: background-color 200ms ease-in-out;
+    min-width: 320px;
+    /* 最小手机尺寸 */
+    overflow-x: hidden;
+    position: relative;
   }
 
   /* 主题过渡动画 */
   .theme-transition * {
     transition: background-color 200ms ease-in-out, border-color 200ms ease-in-out !important;
+  }
+
+  /* 确保根容器可以滚动 */
+  #__next {
+    min-height: 100vh;
+  }
+
+  /* 防止固定高度阻止滚动 */
+  .min-h-screen {
+    min-height: 100vh;
+  }
+
+  /* 最小宽度控制 - 防止界面过小 */
+  .container,
+  .max-w-sm,
+  .max-w-md,
+  .max-w-lg {
+    min-width: 280px;
+  }
+
+  /* 确保卡片在小屏幕上有合适的padding */
+  @media (max-width: 320px) {
+    .p-4 {
+      padding: 0.75rem;
+    }
+
+    .p-6 {
+      padding: 1rem;
+    }
+
+    .space-y-4>*+* {
+      margin-top: 0.75rem;
+    }
   }
 }

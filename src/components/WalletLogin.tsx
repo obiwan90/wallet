@@ -23,7 +23,7 @@ interface WalletLoginProps {
 }
 
 export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
-  const { setWallet } = useWeb3();
+  const { setWallet, setCurrentUserSession } = useWeb3();
   const [hasWallet, setHasWallet] = React.useState<boolean | null>(null);
   const [showForgotPassword, setShowForgotPassword] = React.useState(false);
   const [showImportWallet, setShowImportWallet] = React.useState(false);
@@ -73,9 +73,11 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
     }
   }, [hasWallet]);
 
-  // GSAP Typewriter Effect for Magic Wallet Title
+  // GSAP Typewriter Effect for Magic Wallet Title - only run once
+  const [titleAnimated, setTitleAnimated] = React.useState(false);
+
   React.useEffect(() => {
-    if (titleRef.current) {
+    if (titleRef.current && !titleAnimated && hasWallet !== null) {
       const text = "Magic Wallet";
       const titleElement = titleRef.current;
 
@@ -110,8 +112,10 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
           borderRight: "none",
           paddingRight: "0"
         });
+
+      setTitleAnimated(true);
     }
-  }, []);
+  }, [titleAnimated, hasWallet]);
 
   // Enhanced GSAP Animation Functions with rolling effects
   const animateCardTransition = (
@@ -239,6 +243,13 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
 
       const account = accounts[0];
 
+      // Validate password by attempting to decrypt wallet data
+      const isValidPassword = await walletManager.validateWalletPassword(account.id, password);
+      if (!isValidPassword) {
+        toast.error('Incorrect password');
+        return;
+      }
+
       setWallet({
         address: account.address,
         balance: '0.0',
@@ -246,10 +257,17 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
         chain: walletService.getCurrentChain()
       });
 
+      // Cache user session for seamless new account creation
+      setCurrentUserSession({
+        accountId: account.id,
+        password: password
+      });
+
       walletService.switchAccount(account.id);
       toast.success('Welcome back!');
       onWalletConnected();
     } catch (error) {
+      console.error('Login error:', error);
       toast.error('Incorrect password or failed to unlock wallet');
     } finally {
       setIsLoading(false);
@@ -277,22 +295,29 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
         walletName || 'Imported Wallet'
       );
 
-      walletManager.saveWalletToStorage(wallet, password);
+      await walletManager.saveWalletToStorage(wallet, password);
 
-      const account: Account = {
-        id: Date.now().toString(),
-        name: wallet.name,
-        address: wallet.address,
-        type: 'imported'
-      };
+      // Get the actual stored account (with the real ID from storage)
+      const storedAccounts = walletManager.getStoredAccounts();
+      const storedAccount = storedAccounts.find(acc => acc.address === wallet.address);
 
-      walletService.addAccount(account);
+      if (!storedAccount) {
+        throw new Error('Failed to find saved account');
+      }
+
+      walletService.addAccount(storedAccount);
 
       setWallet({
         address: wallet.address,
         balance: '0.0',
         chainId: 1,
         chain: walletService.getCurrentChain()
+      });
+
+      // Cache user session for seamless new account creation
+      setCurrentUserSession({
+        accountId: storedAccount.id,
+        password: password
       });
 
       if (hasWallet) {
@@ -343,22 +368,29 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
 
     setIsLoading(true);
     try {
-      walletManager.saveWalletToStorage(generatedWallet, password);
+      await walletManager.saveWalletToStorage(generatedWallet, password);
 
-      const account: Account = {
-        id: Date.now().toString(),
-        name: generatedWallet.name,
-        address: generatedWallet.address,
-        type: 'generated'
-      };
+      // Get the actual stored account (with the real ID from storage)
+      const storedAccounts = walletManager.getStoredAccounts();
+      const storedAccount = storedAccounts.find(acc => acc.address === generatedWallet.address);
 
-      walletService.addAccount(account);
+      if (!storedAccount) {
+        throw new Error('Failed to find saved account');
+      }
+
+      walletService.addAccount(storedAccount);
 
       setWallet({
         address: generatedWallet.address,
         balance: '0.0',
         chainId: 1,
         chain: walletService.getCurrentChain()
+      });
+
+      // Cache user session for seamless new account creation
+      setCurrentUserSession({
+        accountId: storedAccount.id,
+        password: password
       });
 
       if (hasWallet) {
@@ -385,28 +417,28 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
 
   return (
     <div className="min-h-screen relative">
-      {/* Corner Controls */}
-      <div className="absolute top-4 left-4 z-20">
+      {/* Corner Controls - Better responsive positioning */}
+      <div className="absolute top-2 left-2 sm:top-4 sm:left-4 z-20">
         <NetworkSelector />
       </div>
-      <div className="absolute top-4 right-4 z-20">
+      <div className="absolute top-2 right-2 sm:top-4 sm:right-4 z-20">
         <ThemeToggle />
       </div>
 
-      <div className="min-h-screen p-2 sm:p-4 overflow-y-auto">
-        <div className="w-full max-w-md mx-auto min-h-screen flex flex-col justify-center py-4">
-          {/* Logo and Title */}
-          <div className="text-center mb-6 md:mb-8">
-            <h1 ref={titleRef} className="text-4xl md:text-6xl font-black text-foreground mb-4 tracking-wide" style={{ fontFamily: '"Creepster", "Chiller", "Papyrus", "Brush Script MT", cursive', textShadow: `2px 2px 4px hsl(var(--foreground) / 0.5)` }}>Magic Wallet</h1>
-            <p className="text-muted-foreground text-sm md:text-base">Smart Web3 wallet, securely manage your digital assets</p>
+      <div className="p-4 md:p-6 lg:p-8">
+        <div className="w-full max-w-sm md:max-w-md lg:max-w-lg mx-auto py-8 md:py-12 space-y-6">
+          {/* Logo and Title - 3-tier responsive design */}
+          <div className="text-center mb-6 md:mb-8 lg:mb-10">
+            <h1 ref={titleRef} className="text-2xl md:text-4xl lg:text-6xl font-black text-foreground mb-3 md:mb-4 tracking-wide leading-tight" style={{ fontFamily: '"Creepster", "Chiller", "Papyrus", "Brush Script MT", cursive', textShadow: `2px 2px 4px hsl(var(--foreground) / 0.5)` }}>Magic Wallet</h1>
+            <p className="text-muted-foreground text-sm md:text-base lg:text-lg px-2">Smart Web3 wallet, securely manage your digital assets</p>
           </div>
 
           {hasWallet === null ? (
             <Card className="bg-white/10 backdrop-blur-lg border-white/20 shadow-2xl">
-              <CardContent className="p-4 md:p-6">
-                <div className="text-center py-8">
-                  <div className="animate-spin w-8 h-8 border-2 border-gray-300 dark:border-white/20 border-t-gray-600 dark:border-t-white rounded-full mx-auto"></div>
-                  <p className="text-gray-600 dark:text-white/70 mt-2">Checking wallet status...</p>
+              <CardContent className="p-6 sm:p-8">
+                <div className="text-center py-6 sm:py-8">
+                  <div className="animate-spin w-6 h-6 sm:w-8 sm:h-8 border-2 border-gray-300 dark:border-white/20 border-t-gray-600 dark:border-t-white rounded-full mx-auto"></div>
+                  <p className="text-gray-600 dark:text-white/70 mt-2 text-sm sm:text-base">Checking wallet status...</p>
                 </div>
               </CardContent>
             </Card>
@@ -415,24 +447,24 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
               {/* Login Card */}
               {hasWallet && !showForgotPassword && (
                 <Card ref={loginFormRef} className="bg-white/20 dark:bg-white/10 backdrop-blur-lg border-white/30 dark:border-white/20 shadow-2xl dark:shadow-white/5">
-                  <CardContent className="p-4 md:p-6">
-                    <div className="space-y-4 md:space-y-6 mt-4 md:mt-6">
-                      <div className="text-center py-2 md:py-4">
-                        <h3 className="text-lg md:text-xl font-semibold text-foreground mb-1 md:mb-2">Welcome Back</h3>
-                        <p className="text-muted-foreground text-xs md:text-sm">
+                  <CardContent className="p-6 sm:p-8">
+                    <div className="space-y-5 sm:space-y-6 mt-4 sm:mt-6">
+                      <div className="text-center py-3 sm:py-4">
+                        <h3 className="text-xl sm:text-2xl font-semibold text-foreground mb-2">Welcome Back</h3>
+                        <p className="text-muted-foreground text-sm sm:text-base">
                           Enter your password to unlock your wallet
                         </p>
                       </div>
 
-                      <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="loginPassword" className="text-foreground text-sm">Wallet Password</Label>
+                      <div className="space-y-2">
+                        <Label htmlFor="loginPassword" className="text-foreground text-sm sm:text-base">Wallet Password</Label>
                         <Input
                           id="loginPassword"
                           type="password"
                           placeholder="Enter your wallet password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm h-10 md:h-11"
+                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm sm:text-base h-11 sm:h-12"
                           onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
                         />
                       </div>
@@ -443,18 +475,30 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                           setTimeout(() => handleLogin(), 100);
                         }}
                         disabled={isLoading}
-                        className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold py-2 md:py-3 text-sm md:text-base mt-4"
+                        className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white font-semibold py-3 sm:py-4 text-base sm:text-lg mt-4 sm:mt-6 h-12 sm:h-14"
                       >
                         {isLoading ? "Unlocking..." : "Unlock Wallet"}
                       </Button>
 
-                      <div className="text-center">
+                      <div className="text-center space-y-2">
+                        <button
+                          onClick={(e) => {
+                            animateButtonClick(e.currentTarget);
+                            setTimeout(() => {
+                              setHasWallet(false);
+                            }, 100);
+                          }}
+                          className="text-primary hover:text-primary/80 text-sm sm:text-base underline transition-colors py-2 block mx-auto"
+                        >
+                          Create New Wallet
+                        </button>
+                        <div className="text-muted-foreground text-xs">or</div>
                         <button
                           onClick={(e) => {
                             animateButtonClick(e.currentTarget);
                             setTimeout(() => handleForgotPasswordToggle(true), 100);
                           }}
-                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
+                          className="text-muted-foreground hover:text-foreground text-sm sm:text-base underline transition-colors py-2 block mx-auto"
                         >
                           Forgot Password?
                         </button>
@@ -480,15 +524,22 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
-                        <Label htmlFor="seedPhrase" className="text-foreground text-sm">Seed Phrase</Label>
-                        <Textarea
-                          id="seedPhrase"
-                          placeholder="Enter your 12 or 24 word seed phrase, separated by spaces"
-                          value={seedPhrase}
-                          onChange={(e) => setSeedPhrase(e.target.value)}
-                          className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-sm"
-                          rows={2}
-                        />
+                        <Label className="text-foreground text-sm">Seed Phrase</Label>
+                        <div className="grid grid-cols-3 gap-2 md:gap-3">
+                          {seedWords.map((word, index) => (
+                            <div key={index} className="relative">
+                              <Input
+                                placeholder={`${index + 1}.`}
+                                value={word}
+                                onChange={(e) => handleSeedWordChange(index, e.target.value)}
+                                className="bg-background/30 border-border text-foreground placeholder:text-muted-foreground focus:border-primary/50 text-xs md:text-sm h-8 md:h-9 pr-8"
+                              />
+                              <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+                                {index + 1}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
                       </div>
 
                       <div className="space-y-1 md:space-y-2">
@@ -537,15 +588,28 @@ export function WalletLogin({ onWalletConnected }: WalletLoginProps) {
                         {isLoading ? "Recovering..." : "Recover Wallet"}
                       </Button>
 
-                      <div className="text-center">
+                      <div className="text-center space-y-2">
                         <button
                           onClick={(e) => {
                             animateButtonClick(e.currentTarget);
                             setTimeout(() => handleForgotPasswordToggle(false), 100);
                           }}
-                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors"
+                          className="text-muted-foreground hover:text-foreground text-xs underline transition-colors block mx-auto"
                         >
                           Back to Login
+                        </button>
+                        <div className="text-muted-foreground text-xs">or</div>
+                        <button
+                          onClick={(e) => {
+                            animateButtonClick(e.currentTarget);
+                            setTimeout(() => {
+                              setHasWallet(false);
+                              setShowForgotPassword(false);
+                            }, 100);
+                          }}
+                          className="text-primary hover:text-primary/80 text-xs underline transition-colors block mx-auto"
+                        >
+                          Create New Wallet
                         </button>
                       </div>
                     </div>

@@ -1,289 +1,222 @@
-# Magic Wallet 开发状态报告
+# Magic Wallet - 开发状态文档
 
-## 📋 项目概述
+## 项目概述
+Magic Wallet 是一个基于 Next.js 15 的现代 Web3 钱包应用，支持多链、多账户管理和完整的区块链交互功能。
 
-Magic Wallet 是一个现代化的 Web3 钱包应用，集成 AI 分析功能，基于 Next.js 15 和 TypeScript 构建。
+## 技术栈
+- **前端框架**: Next.js 15 (App Router) + React 19 + TypeScript
+- **样式**: Tailwind CSS + shadcn/ui 组件库
+- **Web3 库**: Viem (替代 ethers.js)
+- **状态管理**: React Context + Local Storage
+- **动画**: Framer Motion + GSAP
+- **主题**: next-themes (默认暗黑模式)
+- **构建工具**: Turbopack
 
-**当前版本**: 0.1.0  
-**最后更新**: 2025-01-26  
-**技术栈**: Next.js 15, React 19, TypeScript, Viem, Tailwind CSS, shadcn/ui
+## 已完成功能
 
----
+### ✅ 核心钱包功能
+- [x] **钱包创建**: 生成 BIP39 助记词钱包
+- [x] **钱包导入**: 支持助记词和私钥导入
+- [x] **多账户支持**: 同一助记词生成多个账户 (BIP44 标准)
+- [x] **账户切换**: 类似 MetaMask 的账户切换体验
+- [x] **密码保护**: AES-GCM + PBKDF2 加密存储
+- [x] **会话管理**: 缓存用户会话信息，便于创建新账户
 
-## 🧹 代码清理记录
+### ✅ Web3 集成
+- [x] **多链支持**: Ethereum, Polygon, BSC, Avalanche, Arbitrum, Optimism, Base
+- [x] **网络切换**: 动态网络切换，支持自定义 RPC
+- [x] **余额查询**: 实时余额查询，支持重试和故障转移
+- [x] **ERC-20 代币**: 代币余额查询和转账
+- [x] **交易发送**: 原生代币和 ERC-20 代币转账
+- [x] **Gas 估算**: 支持 EIP-1559 和传统 Gas 定价
+- [x] **网络健康监测**: 实时监测网络状态
 
-### 已删除的无用代码
+### ✅ 用户界面
+- [x] **响应式设计**: 支持手机/平板/桌面三种尺寸
+- [x] **暗黑模式**: 默认暗黑主题，支持主题切换
+- [x] **页面滚动**: 彻底解决滚动问题，确保所有内容可访问
+- [x] **登录流程**: 
+  - 密码验证登录
+  - 忘记密码恢复 (九宫格助记词输入)
+  - 创建新钱包选项
+- [x] **仪表盘**: 
+  - 账户切换器
+  - 实时余额显示
+  - 网络状态指示
+  - 资产列表 (原生代币 + ERC-20)
+- [x] **发送功能**: 完整的交易发送流程，包括gas估算和确认
 
-| 文件路径 | 清理内容 | 原因 |
-|---------|---------|------|
-| `src/app/page.tsx` | 移除 `LogOut`, `Button` 导入和 `handleLogout` 函数 | 导入未使用，函数功能重复 |
-| `src/components/NetworkSwitcher.tsx` | 删除整个文件 | 与 `network-selector.tsx` 功能重复 |
+### ✅ 安全特性
+- [x] **密码验证**: 真实的密码验证，防止无效密码登录
+- [x] **加密存储**: 所有敏感数据都经过 AES-GCM 加密
+- [x] **私钥保护**: 私钥仅在交易签名时临时加载
+- [x] **会话安全**: 会话信息在内存中管理
+- [x] **地址验证**: 严格的地址格式验证
 
-### 修复的问题
+## 项目结构
+```
+src/
+├── app/                    # Next.js 15 app router
+│   ├── layout.tsx         # 根布局，主题提供器
+│   ├── page.tsx           # 主页面
+│   └── globals.css        # 全局样式
+├── components/
+│   ├── ui/                # shadcn/ui 组件
+│   ├── WalletLogin.tsx    # 登录/创建钱包界面
+│   ├── wallet-dashboard.tsx # 主仪表盘
+│   ├── SendModal.tsx      # 发送交易模态框
+│   ├── AccountSwitcher.tsx # 账户切换器
+│   ├── network-selector.tsx # 网络选择器
+│   ├── theme-toggle.tsx   # 主题切换
+│   └── background-gradient.tsx # 背景渐变动画
+├── contexts/
+│   └── Web3Context.tsx    # 全局 Web3 状态管理
+├── lib/
+│   ├── web3.ts           # Web3 服务层 (Viem)
+│   ├── wallet-manager.ts # 钱包管理和加密
+│   └── utils.ts          # 工具函数
+└── types/                 # TypeScript 类型定义
+```
 
-- ✅ 修复 `formatTime` 函数缺失问题（已添加到 `utils.ts`）
-- ✅ 清理未使用的导入和变量
-- ✅ 移除重复组件定义
+## 最新解决的问题
 
----
+### 🔧 页面滚动问题 (最终解决)
+**问题**: 页面无法滚动，底部内容被截断
+**根本原因**: 
+1. `WalletLogin` 组件使用了 `justify-center` 和固定高度，强制内容居中
+2. `BackgroundGradient` 组件的 `overflow-hidden` 阻止滚动
+3. CSS 中的 height 和 overflow 设置冲突
 
-## 🚀 功能实现状态
+**解决方案**:
+- 移除强制居中的布局 (`justify-center`, `minHeight: calc(100vh - 2rem)`)
+- 优化 CSS 滚动设置，移除冲突的 overflow 属性
+- 重构 `BackgroundGradient` 组件，使用正常文档流
 
-### 🔐 钱包核心功能
+### 🔧 账户切换功能
+**问题**: 新创建的账户无法显示和切换
+**解决方案**:
+- 添加会话管理，缓存用户密码
+- 改进账户加载逻辑
+- 自动切换到新创建的账户
+- 添加详细的调试日志
 
-| 功能 | 状态 | 完成度 | 备注 |
-|------|------|--------|------|
-| 创建新钱包 | ✅ 已实现 | 100% | 支持 BIP39 助记词生成 |
-| 导入钱包（助记词） | ✅ 已实现 | 100% | 支持 12/24 词助记词 |
-| 导入钱包（私钥） | ✅ 已实现 | 100% | 支持私钥直接导入 |
-| 多账户管理 | ✅ 已实现 | 100% | 支持账户切换和管理 |
-| 本地加密存储 | ⚠️ 部分实现 | 60% | **需要升级到生产级加密算法** |
-| 密码保护 | ✅ 已实现 | 90% | 基础密码验证已完成 |
+### 🔧 UI 优化
+**问题**: 页面头部图标混乱，布局不清晰
+**解决方案**:
+- 移除多余的钱包图标
+- 简化头部布局
+- 优化账户切换器显示
 
-### 💎 Web3 集成
+## 核心代码亮点
 
-| 功能 | 状态 | 完成度 | 备注 |
-|------|------|--------|------|
-| 多链网络配置 | ✅ 已实现 | 100% | 支持 7+ 主流网络 |
-| 网络切换 | ✅ 已实现 | 100% | 动态网络切换功能 |
-| 网络状态检测 | ✅ 已实现 | 100% | RPC 连接状态监控 |
-| 余额查询 | ❌ 待实现 | 10% | **目前使用模拟数据** |
-| 交易发送 | ❌ 待实现 | 20% | **UI 已完成，缺少实际发送逻辑** |
-| ERC-20 代币支持 | ❌ 待实现 | 0% | **高优先级功能** |
-| NFT 资产显示 | ❌ 待实现 | 0% | 低优先级功能 |
-| 交易历史 | ❌ 待实现 | 30% | **UI 已完成，使用模拟数据** |
+### 1. 安全的钱包管理
+```typescript
+// AES-GCM + PBKDF2 加密
+async encryptWalletData(walletData: WalletData, password: string): Promise<string> {
+  const salt = this.generateRandomBytes(16);
+  const iv = this.generateRandomBytes(12);
+  const key = await this.deriveKey(password, salt);
+  // ... AES-GCM 加密实现
+}
+```
 
-### 🤖 AI 分析功能
+### 2. 多 RPC 故障转移
+```typescript
+async retryWithFallback<T>(operation: () => Promise<T>, maxRetries: number = 3): Promise<T> {
+  const networkConfig = NETWORKS[this.currentChain.id as keyof typeof NETWORKS];
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      // 尝试下一个 RPC 端点
+      this.currentRpcIndex = (this.currentRpcIndex + 1) % networkConfig.rpcUrls.length;
+      this.initializeClient();
+    }
+  }
+}
+```
 
-| 功能 | 状态 | 完成度 | 备注 |
-|------|------|--------|------|
-| AI 分析界面 | ✅ 已实现 | 100% | 三个分析模块界面完整 |
-| 投资组合分析 | ⚠️ 模拟实现 | 40% | **需要真实 MCP 集成** |
-| 智能合约验证 | ⚠️ 模拟实现 | 30% | **需要增强验证算法** |
-| Python 代码执行 | ⚠️ 模拟实现 | 20% | **需要 MCP 后端支持** |
-| 区块链洞察分析 | ⚠️ 模拟实现 | 30% | 基础分析逻辑已完成 |
+### 3. 会话管理
+```typescript
+interface Web3ContextType {
+  currentUserSession: { accountId: string; password: string } | null;
+  setCurrentUserSession: (session: { accountId: string; password: string } | null) => void;
+}
+```
 
-### 🎨 用户体验
+## 配置说明
 
-| 功能 | 状态 | 完成度 | 备注 |
-|------|------|--------|------|
-| 响应式设计 | ✅ 已实现 | 95% | 支持桌面和移动设备 |
-| 深色/浅色模式 | ✅ 已实现 | 100% | 主题切换完整 |
-| 动画效果 | ✅ 已实现 | 90% | Framer Motion + GSAP |
-| 多语言支持 | ⚠️ 部分实现 | 30% | **中英文混用，需要国际化** |
-| 错误处理 | ⚠️ 部分实现 | 60% | 基础错误提示已完成 |
-| 加载状态 | ✅ 已实现 | 85% | 大部分操作有加载指示 |
+### 网络配置
+支持 7 个主流网络，每个网络配置多个 RPC 端点：
+- Ethereum Mainnet
+- Polygon
+- BSC (Binance Smart Chain)
+- Avalanche
+- Arbitrum
+- Optimism  
+- Base
 
-### 🔒 安全功能
+### 主题配置
+- 默认暗黑模式
+- 支持手动切换
+- 平滑过渡动画
+- SSR 兼容
 
-| 功能 | 状态 | 完成度 | 备注 |
-|------|------|--------|------|
-| 私钥加密存储 | ⚠️ 简化实现 | 50% | **需要生产级加密算法** |
-| 助记词验证 | ✅ 已实现 | 90% | BIP39 标准验证 |
-| 交易签名 | ❌ 待实现 | 0% | **核心功能缺失** |
-| 安全审计 | ❌ 待实现 | 0% | 需要专业安全审查 |
+### 响应式断点
+- Mobile: < 640px (最小 320px)
+- Tablet: 640px - 1024px
+- Desktop: > 1024px
 
----
+## 开发命令
 
-## 🎯 待实现功能详细清单
-
-### 高优先级（P0）
-
-#### 🔥 核心区块链功能
-- [ ] **真实余额查询实现**
-  - 集成区块链 RPC 调用
-  - 支持原生代币余额查询
-  - 实时余额更新机制
-  
-- [ ] **交易发送功能**
-  - 交易构建和签名
-  - Gas 费用计算
-  - 交易状态跟踪
-  
-- [ ] **ERC-20 代币支持**
-  - 代币合约交互
-  - 代币余额查询
-  - 代币转账功能
-
-#### 🛡️ 安全加强
-- [ ] **生产级加密算法**
-  - 替换当前简化的加密方式
-  - 使用 AES-256 或更强的加密
-  - 密钥派生函数 (PBKDF2/Argon2)
-
-### 中优先级（P1）
-
-#### 🤖 AI 功能实现
-- [ ] **MCP (Model Context Protocol) 集成**
-  - 后端 MCP 服务器设置
-  - Python 代码执行环境
-  - AI 分析数据管道
-
-#### 📊 数据集成
-- [ ] **区块链数据 API 集成**
-  - 价格数据接口 (CoinGecko/CoinMarketCap)
-  - 交易历史 API
-  - DeFi 协议数据
-
-#### 🌍 国际化
-- [ ] **完整的中英文支持**
-  - i18n 框架集成
-  - 翻译文件管理
-  - 动态语言切换
-
-### 低优先级（P2）
-
-#### 💎 高级功能
-- [ ] **NFT 资产支持**
-  - NFT 余额查询
-  - NFT 展示界面
-  - NFT 转账功能
-
-#### 🧪 开发工具
-- [ ] **测试套件**
-  - 单元测试 (Jest/Vitest)
-  - 集成测试
-  - E2E 测试 (Playwright)
-
-#### 📈 性能优化
-- [ ] **性能监控**
-  - 错误追踪 (Sentry)
-  - 性能分析
-  - 用户行为分析
-
----
-
-## 🔧 技术债务
-
-### 当前技术债务
-
-1. **简化的加密实现**
-   - 文件: `src/lib/wallet-manager.ts`
-   - 问题: 使用 base64 编码，不安全
-   - 影响: 生产环境安全风险
-
-2. **模拟数据使用**
-   - 文件: `src/components/ui/wallet-dashboard.tsx`, `src/lib/magic-service.ts`
-   - 问题: 大量 hardcoded 模拟数据
-   - 影响: 用户体验不真实
-
-3. **错误处理不完整**
-   - 文件: 多个组件
-   - 问题: 错误边界处理不足
-   - 影响: 用户体验和调试困难
-
-4. **类型定义分散**
-   - 问题: 类型定义在多个文件中重复
-   - 影响: 维护困难，类型不一致
-
-### 重构建议
-
-1. **创建统一的类型定义文件** (`src/types/`)
-2. **抽取 API 服务层** (`src/services/`)
-3. **完善错误处理机制**
-4. **代码分层优化**
-
----
-
-## 📦 依赖项状态
-
-### 核心依赖
-- ✅ **Next.js 15**: 最新稳定版
-- ✅ **React 19**: 最新版本
-- ✅ **TypeScript 5**: 类型安全
-- ✅ **Viem 2.31**: 现代 Web3 库
-- ✅ **Tailwind CSS 4**: UI 样式
-
-### 开发依赖
-- ✅ **shadcn/ui**: 组件库完整
-- ✅ **Framer Motion**: 动画库
-- ✅ **GSAP**: 高级动画
-- ✅ **Sonner**: 通知系统
-
-### 需要添加的依赖
-- [ ] **Crypto 库**: 生产级加密
-- [ ] **i18n 库**: 国际化支持
-- [ ] **测试框架**: Jest/Vitest + Playwright
-- [ ] **API 客户端**: Axios/Fetch wrapper
-
----
-
-## 🚦 开发里程碑
-
-### 阶段 1: 核心功能完善 (2-3 周)
-- [ ] 真实余额查询
-- [ ] 基础交易发送
-- [ ] 安全加密升级
-- [ ] ERC-20 基础支持
-
-### 阶段 2: AI 功能集成 (2-3 周)
-- [ ] MCP 后端搭建
-- [ ] AI 分析功能实现
-- [ ] Python 代码执行
-- [ ] 智能合约验证增强
-
-### 阶段 3: 用户体验优化 (1-2 周)
-- [ ] 国际化完成
-- [ ] 性能优化
-- [ ] 错误处理完善
-- [ ] 测试覆盖
-
-### 阶段 4: 高级功能 (2-3 周)
-- [ ] NFT 支持
-- [ ] DeFi 集成
-- [ ] 高级分析功能
-- [ ] 安全审计
-
----
-
-## 📞 贡献指南
-
-### 开发环境设置
 ```bash
-# 安装依赖
-npm install
-
-# 启动开发服务器
+# 开发模式 (Turbopack)
 npm run dev
 
-# 构建项目
+# 生产构建
 npm run build
+
+# 启动生产服务器
+npm start
 ```
 
-### 代码规范
-- 使用 TypeScript 严格模式
-- 遵循 ESLint 配置
-- 组件使用 React 19 最新特性
-- CSS 使用 Tailwind 工具类
+## 下一步开发计划
 
-### Git 提交规范
-```
-feat: 新功能
-fix: 修复问题
-docs: 文档更新
-style: 代码格式
-refactor: 重构
-test: 测试相关
-chore: 构建/工具相关
-```
+### 🚧 待开发功能
+- [ ] **交易历史**: 查询和显示历史交易
+- [ ] **价格 API**: 集成实时价格数据
+- [ ] **接收功能**: QR 码生成和地址分享
+- [ ] **DeFi 集成**: Swap 和 DeFi 协议交互
+- [ ] **NFT 支持**: NFT 查看和转账
+- [ ] **地址簿**: 常用地址管理
+- [ ] **交易记录导出**: CSV/JSON 格式导出
+
+### 🔮 高级功能
+- [ ] **硬件钱包支持**: Ledger/Trezor 集成
+- [ ] **多签钱包**: 多重签名钱包支持
+- [ ] **DApp 连接**: WalletConnect 集成
+- [ ] **批量交易**: 批量发送功能
+- [ ] **Gas 优化**: 智能 Gas 费用建议
+
+## 技术债务和优化
+
+### 性能优化
+- [ ] 代码分割和懒加载
+- [ ] 图片优化
+- [ ] Bundle 大小优化
+
+### 安全加固
+- [ ] CSP (Content Security Policy)
+- [ ] 更严格的输入验证
+- [ ] 审计日志
+
+### 用户体验
+- [ ] 离线模式支持
+- [ ] 更好的错误处理
+- [ ] 加载状态优化
 
 ---
 
-## 📈 性能指标
-
-### 当前性能
-- **首屏加载**: ~2.1s
-- **交互响应**: <100ms
-- **包大小**: ~1.2MB (gzipped)
-- **Lighthouse 评分**: 85/100
-
-### 优化目标
-- **首屏加载**: <1.5s
-- **交互响应**: <50ms
-- **包大小**: <800KB
-- **Lighthouse 评分**: >95/100
-
----
-
-*最后更新: 2025-01-26*  
-*文档版本: 1.0*
+**最后更新**: 2025-06-26  
+**版本**: v1.0.0-alpha  
+**状态**: 核心功能完成，准备进入测试阶段

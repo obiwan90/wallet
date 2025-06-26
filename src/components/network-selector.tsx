@@ -25,7 +25,7 @@ export function NetworkSelector() {
         
         try {
           // Simple RPC call to check if network is responsive
-          const response = await fetch(NETWORKS[networkId as keyof typeof NETWORKS].rpcUrl, {
+          const response = await fetch(NETWORKS[networkId as keyof typeof NETWORKS].rpcUrls[0], {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
