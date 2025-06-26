@@ -61,23 +61,9 @@ export function AccountSwitcher({ className }: AccountSwitcherProps) {
     return accounts.find(acc => acc.id === currentAccountId);
   };
 
-  const handleAccountSwitch = async (account: Account, password?: string) => {
+  const handleAccountSwitch = async (account: Account) => {
     try {
-      // If no password provided, show password prompt (simplified for this demo)
-      if (!password) {
-        const userPassword = prompt('Enter wallet password to switch account:');
-        if (!userPassword) return;
-        password = userPassword;
-      }
-
-      // Validate password
-      const isValid = await walletManager.validateWalletPassword(account.id, password);
-      if (!isValid) {
-        toast.error('Incorrect password');
-        return;
-      }
-
-      // Switch to the account
+      // Switch to the account directly (no password needed since accounts share same password)
       setWallet({
         address: account.address,
         balance: '0.0',
@@ -85,11 +71,13 @@ export function AccountSwitcher({ className }: AccountSwitcherProps) {
         chain: walletService.getCurrentChain()
       });
 
-      // Update session info for the new current account
-      setCurrentUserSession({
-        accountId: account.id,
-        password: password
-      });
+      // Update session info for the new current account, keeping existing password
+      if (currentUserSession) {
+        setCurrentUserSession({
+          accountId: account.id,
+          password: currentUserSession.password
+        });
+      }
 
       walletService.switchAccount(account.id);
       setCurrentAccountId(account.id);

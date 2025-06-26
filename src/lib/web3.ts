@@ -15,7 +15,7 @@ import {
   type Hash
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { mainnet, polygon, bsc, avalanche, arbitrum, optimism, base } from 'viem/chains';
+import { mainnet, polygon, bsc, avalanche, arbitrum, optimism, base, sepolia, polygonMumbai, bscTestnet } from 'viem/chains';
 
 export interface WalletInfo {
   address: Address;
@@ -78,6 +78,16 @@ export interface GasEstimate {
   maxFeePerGas?: bigint;
   maxPriorityFeePerGas?: bigint;
   estimatedCost: string; // in native currency
+}
+
+export interface NetworkInfo {
+  name: string;
+  symbol: string;
+  chain: Chain;
+  color: string;
+  rpcUrls: string[];
+  isTestnet?: boolean;
+  isCustom?: boolean;
 }
 
 // ERC-20 ABI for basic token operations
@@ -200,6 +210,42 @@ export const NETWORKS = {
       'https://mainnet.base.org',
       'https://rpc.ankr.com/base'
     ]
+  },
+  // Testnets
+  11155111: {
+    name: 'Sepolia',
+    symbol: 'ETH',
+    chain: sepolia,
+    color: '#627EEA',
+    rpcUrls: [
+      'https://sepolia.infura.io/v3/9aa3d95b3bc440fa88ea12eaa4456161',
+      'https://rpc.sepolia.org',
+      'https://rpc.ankr.com/eth_sepolia'
+    ],
+    isTestnet: true
+  },
+  80001: {
+    name: 'Mumbai',
+    symbol: 'MATIC',
+    chain: polygonMumbai,
+    color: '#8247E5',
+    rpcUrls: [
+      'https://rpc-mumbai.maticvigil.com',
+      'https://matic-mumbai.chainstacklabs.com',
+      'https://rpc.ankr.com/polygon_mumbai'
+    ],
+    isTestnet: true
+  },
+  97: {
+    name: 'BSC Testnet',
+    symbol: 'BNB',
+    chain: bscTestnet,
+    color: '#F3BA2F',
+    rpcUrls: [
+      'https://data-seed-prebsc-1-s1.binance.org:8545',
+      'https://data-seed-prebsc-2-s1.binance.org:8545'
+    ],
+    isTestnet: true
   }
 };
 
@@ -653,6 +699,32 @@ export class WalletService {
         return { status: 'not_found' };
       }
     }
+  }
+
+  // Custom network management
+  getCustomNetworks(): Record<number, NetworkInfo> {
+    const stored = localStorage.getItem('customNetworks');
+    return stored ? JSON.parse(stored) : {};
+  }
+
+  addCustomNetwork(network: Omit<NetworkInfo, 'isCustom'> & { chainId: number }): void {
+    const customNetworks = this.getCustomNetworks();
+    customNetworks[network.chainId] = {
+      ...network,
+      isCustom: true
+    };
+    localStorage.setItem('customNetworks', JSON.stringify(customNetworks));
+  }
+
+  removeCustomNetwork(chainId: number): void {
+    const customNetworks = this.getCustomNetworks();
+    delete customNetworks[chainId];
+    localStorage.setItem('customNetworks', JSON.stringify(customNetworks));
+  }
+
+  getAllNetworks(): Record<number, NetworkInfo> {
+    const customNetworks = this.getCustomNetworks();
+    return { ...NETWORKS, ...customNetworks };
   }
 }
 

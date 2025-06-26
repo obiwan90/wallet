@@ -11,34 +11,44 @@ import {
   ExternalLink,
   ArrowRight,
   Loader2,
-  Wallet as WalletIcon
+  Wallet as WalletIcon,
+  ChevronDown,
+  Coins
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 import { useWeb3 } from '@/contexts/Web3Context';
-import { walletService, isValidAddress, formatAddress, NETWORKS, type TransactionRequest, type TokenTransferRequest } from '@/lib/web3';
+import { walletService, isValidAddress, formatAddress, NETWORKS, type TransactionRequest, type TokenTransferRequest, type Account } from '@/lib/web3';
 import { walletManager } from '@/lib/wallet-manager';
 import { toast } from 'sonner';
 
 interface SendModalProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedAsset?: {
-    symbol: string;
-    name: string;
-    address?: string;
-    decimals?: number;
-    balance: string;
-    isNative?: boolean;
-  };
 }
 
-export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
+interface AssetOption {
+  symbol: string;
+  name: string;
+  address?: string;
+  decimals?: number;
+  balance: string;
+  isNative?: boolean;
+}
+
+export function SendModal({ isOpen, onClose }: SendModalProps) {
   const { wallet, refreshBalance, refreshTokenBalances } = useWeb3();
+  
+  // Account and asset selection
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [selectedAccountId, setSelectedAccountId] = useState<string>('');
+  const [availableAssets, setAvailableAssets] = useState<AssetOption[]>([]);
+  const [selectedAsset, setSelectedAsset] = useState<AssetOption | null>(null);
   
   // Form states
   const [recipient, setRecipient] = useState('');
@@ -56,6 +66,13 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
 
   const networkConfig = wallet ? NETWORKS[wallet.chainId as keyof typeof NETWORKS] : null;
 
+  // Load accounts when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      loadAccounts();
+    }
+  }, [isOpen]);
+
   // Reset form when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -67,8 +84,65 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
       setError('');
       setTxHash('');
       setGasEstimate(null);
+      setSelectedAsset(null);
+      setAvailableAssets([]);
     }
   }, [isOpen]);
+
+  // Load assets when account is selected
+  useEffect(() => {
+    if (selectedAccountId) {
+      loadAssetsForAccount(selectedAccountId);
+    }
+  }, [selectedAccountId]);
+
+  const loadAccounts = () => {
+    const storedAccounts = walletManager.getStoredAccounts();
+    setAccounts(storedAccounts);
+    
+    // Auto-select current account if available
+    if (wallet && storedAccounts.length > 0) {
+      const currentAccount = storedAccounts.find(acc => acc.address === wallet.address);
+      if (currentAccount) {
+        setSelectedAccountId(currentAccount.id);
+      } else {
+        setSelectedAccountId(storedAccounts[0].id);
+      }
+    }
+  };
+
+  const loadAssetsForAccount = async (accountId: string) => {
+    const account = accounts.find(acc => acc.id === accountId);
+    if (!account) return;
+
+    try {
+      // Get native token balance
+      const nativeBalance = await walletService.getBalance(account.address);
+      const nativeSymbol = networkConfig?.symbol || 'ETH';
+      
+      const assets: AssetOption[] = [
+        {
+          symbol: nativeSymbol,
+          name: `${nativeSymbol} (Native)`,
+          balance: nativeBalance,
+          isNative: true
+        }
+      ];
+
+      // TODO: Add token balances here
+      // For now, we'll just show the native token
+      
+      setAvailableAssets(assets);
+      
+      // Auto-select first asset
+      if (assets.length > 0 && !selectedAsset) {
+        setSelectedAsset(assets[0]);
+      }
+    } catch (error) {
+      console.error('Failed to load assets:', error);
+      setAvailableAssets([]);
+    }
+  };
 
   // Validate recipient address
   useEffect(() => {
@@ -123,22 +197,14 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
   };
 
   const handleConfirmSend = async () => {
-    if (!wallet || !selectedAsset || !password) return;
+    if (!selectedAsset || !password || !selectedAccountId) return;
     
     setStep('sending');
     setError('');
     
     try {
-      // Get current account ID from localStorage (simplified)
-      const accounts = walletManager.getStoredAccounts();
-      const currentAccountId = accounts[0]?.id; // Use first account for demo
-      
-      if (!currentAccountId) {
-        throw new Error('No account found');
-      }
-
-      // Validate password and get private key
-      const privateKey = await walletManager.getPrivateKeyForSigning(currentAccountId, password);
+      // Validate password and get private key for selected account
+      const privateKey = await walletManager.getPrivateKeyForSigning(selectedAccountId, password);
       
       // Set the account for transaction signing
       walletService.setCurrentAccount(privateKey);
@@ -199,6 +265,10 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
   const getAvailableBalance = () => {
     if (!selectedAsset) return '0';
     return selectedAsset.balance;
+  };
+
+  const getSelectedAccount = () => {
+    return accounts.find(acc => acc.id === selectedAccountId);
   };
 
   const formatCurrency = (amount: number) => {
@@ -262,32 +332,88 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                 >
-                  {/* Asset Info */}
-                  {selectedAsset && (
-                    <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
-                      <div className="w-10 h-10 md:w-12 md:h-12 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full flex items-center justify-center">
-                        <span className="font-bold text-sm md:text-base">
-                          {selectedAsset.symbol[0]}
-                        </span>
-                      </div>
-                      <div className="flex-1">
-                        <div className="font-semibold text-sm md:text-base">{selectedAsset.symbol}</div>
-                        <div className="text-xs md:text-sm text-muted-foreground">
-                          Balance: {getAvailableBalance()}
-                        </div>
-                      </div>
-                      {networkConfig && (
+                  {/* Account Selection */}
+                  <div className="space-y-2">
+                    <Label className="text-sm md:text-base">发送账户</Label>
+                    <Select value={selectedAccountId} onValueChange={setSelectedAccountId}>
+                      <SelectTrigger className="h-11 md:h-12">
+                        <SelectValue placeholder="选择发送账户" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center">
+                                <span className="text-xs font-bold">
+                                  {account.name.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                              <div>
+                                <div className="font-medium text-sm">{account.name}</div>
+                                <div className="text-xs text-muted-foreground">
+                                  {formatAddress(account.address)}
+                                </div>
+                              </div>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Asset Selection */}
+                  {availableAssets.length > 0 && (
+                    <div className="space-y-2">
+                      <Label className="text-sm md:text-base">发送币种</Label>
+                      <Select 
+                        value={selectedAsset?.symbol || ''} 
+                        onValueChange={(value) => {
+                          const asset = availableAssets.find(a => a.symbol === value);
+                          setSelectedAsset(asset || null);
+                        }}
+                      >
+                        <SelectTrigger className="h-11 md:h-12">
+                          <SelectValue placeholder="选择币种" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableAssets.map((asset) => (
+                            <SelectItem key={asset.symbol} value={asset.symbol}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full flex items-center justify-center">
+                                  <span className="text-xs font-bold">
+                                    {asset.symbol[0]}
+                                  </span>
+                                </div>
+                                <div>
+                                  <div className="font-medium text-sm">{asset.symbol}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    余额: {asset.balance}
+                                  </div>
+                                </div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {/* Network Info */}
+                  {networkConfig && (
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <div className="flex items-center gap-2">
                         <Badge variant="secondary" className="text-xs">
                           {networkConfig.name}
                         </Badge>
-                      )}
+                        <span className="text-xs text-muted-foreground">网络</span>
+                      </div>
                     </div>
                   )}
 
                   {/* Recipient */}
                   <div className="space-y-2">
                     <Label htmlFor="recipient" className="text-sm md:text-base">
-                      Recipient Address
+                      接收方地址
                     </Label>
                     <Input
                       id="recipient"
@@ -310,7 +436,7 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
                   {/* Amount */}
                   <div className="space-y-2">
                     <Label htmlFor="amount" className="text-sm md:text-base">
-                      Amount
+                      发送数量
                     </Label>
                     <div className="relative">
                       <Input
@@ -364,11 +490,11 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
                   {/* Send Button */}
                   <Button
                     onClick={handleSend}
-                    disabled={!isValidRecipient || !amount || parseFloat(amount) <= 0 || !gasEstimate || isEstimatingGas}
+                    disabled={!selectedAccountId || !selectedAsset || !isValidRecipient || !amount || parseFloat(amount) <= 0 || !gasEstimate || isEstimatingGas}
                     className="w-full h-11 md:h-12 text-sm md:text-base"
                   >
                     <Send className="w-4 h-4 mr-2" />
-                    Review Transaction
+                    检查交易
                   </Button>
                 </motion.div>
               )}
@@ -389,15 +515,24 @@ export function SendModal({ isOpen, onClose, selectedAsset }: SendModalProps) {
                   {/* Transaction Summary */}
                   <div className="p-4 bg-muted/50 rounded-lg space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-sm md:text-base">Sending:</span>
+                      <span className="text-sm md:text-base">发送方:</span>
+                      <div className="text-right">
+                        <div className="font-medium text-sm">{getSelectedAccount()?.name}</div>
+                        <div className="font-mono text-xs text-muted-foreground">
+                          {getSelectedAccount() && formatAddress(getSelectedAccount()!.address)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-sm md:text-base">发送数量:</span>
                       <span className="font-medium text-sm md:text-base">{amount} {selectedAsset?.symbol}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm md:text-base">To:</span>
+                      <span className="text-sm md:text-base">接收方:</span>
                       <span className="font-mono text-sm">{formatAddress(recipient)}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-sm md:text-base">Network Fee:</span>
+                      <span className="text-sm md:text-base">网络费用:</span>
                       <span className="text-sm md:text-base">{gasEstimate?.estimatedCost} {networkConfig?.symbol}</span>
                     </div>
                   </div>

@@ -292,7 +292,6 @@ export function WalletDashboard() {
   const [isHovering, setIsHovering] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
-  const [selectedAssetForSend, setSelectedAssetForSend] = useState<any>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -334,18 +333,7 @@ export function WalletDashboard() {
   const totalValue = calculateTotalValue();
   const networkConfig = wallet ? NETWORKS[wallet.chainId as keyof typeof NETWORKS] : null;
 
-  const handleSendClick = (asset?: any) => {
-    if (asset) {
-      setSelectedAssetForSend(asset);
-    } else if (wallet && networkConfig) {
-      // Default to native token
-      setSelectedAssetForSend({
-        symbol: networkConfig.symbol,
-        name: networkConfig.name,
-        balance: wallet.balance,
-        isNative: true
-      });
-    }
+  const handleSendClick = () => {
     setShowSendModal(true);
   };
 
@@ -457,22 +445,8 @@ export function WalletDashboard() {
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
-            {/* Network info and selector */}
-            {wallet && networkConfig && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-muted rounded-md">
-                  <div
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: networkConfig.color }}
-                  />
-                  <span className="text-sm font-medium">{networkConfig.name}</span>
-                  {networkHealth && !networkHealth.healthy && (
-                    <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse" title="Network issues" />
-                  )}
-                </div>
-                <NetworkSelector />
-              </div>
-            )}
+            {/* Network selector */}
+            <NetworkSelector />
 
             <ThemeToggle />
             <Button
@@ -564,7 +538,7 @@ export function WalletDashboard() {
                   <ButtonGroup>
                     <Button
                       className="flex-1"
-                      onClick={() => handleSendClick()}
+                      onClick={handleSendClick}
                     >
                       <Send className="w-4 h-4 mr-2" />
                       Send
@@ -645,12 +619,7 @@ export function WalletDashboard() {
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
                         whileHover={{ scale: 1.01 }}
-                        onClick={() => handleSendClick({
-                          symbol: networkConfig.symbol,
-                          name: networkConfig.name,
-                          balance: wallet.balance,
-                          isNative: true
-                        })}
+                        onClick={handleSendClick}
                       >
                         <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                           <div
@@ -697,14 +666,7 @@ export function WalletDashboard() {
                         animate={{ opacity: 1, x: 0 }}
                         transition={{ delay: (index + 1) * 0.1 }}
                         whileHover={{ scale: 1.01 }}
-                        onClick={() => handleSendClick({
-                          symbol: tokenBalance.token.symbol,
-                          name: tokenBalance.token.name,
-                          address: tokenBalance.token.address,
-                          decimals: tokenBalance.token.decimals,
-                          balance: tokenBalance.formattedBalance,
-                          isNative: false
-                        })}
+                        onClick={handleSendClick}
                       >
                         <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
                           <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r from-primary/20 to-accent/20 rounded-full flex items-center justify-center text-lg sm:text-2xl flex-shrink-0 font-bold">
@@ -918,7 +880,6 @@ export function WalletDashboard() {
       <SendModal
         isOpen={showSendModal}
         onClose={() => setShowSendModal(false)}
-        selectedAsset={selectedAssetForSend}
       />
     </div>
   );
