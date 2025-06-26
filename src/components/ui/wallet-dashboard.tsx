@@ -22,7 +22,8 @@ import {
   PieChart,
   Activity,
   Clock,
-  LogOut
+  LogOut,
+  Book
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,9 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { NetworkSelector } from '@/components/network-selector';
 import { SendModal } from '@/components/SendModal';
 import { AccountSwitcher } from '@/components/AccountSwitcher';
+import { TransactionHistory } from '@/components/TransactionHistory';
+import { ReceiveModal } from '@/components/ReceiveModal';
+import { AddressBook } from '@/components/AddressBook';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { NETWORKS } from '@/lib/web3';
 
@@ -292,6 +296,8 @@ export function WalletDashboard() {
   const [isHovering, setIsHovering] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
+  const [showReceiveModal, setShowReceiveModal] = useState(false);
+  const [showAddressBook, setShowAddressBook] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -432,22 +438,20 @@ export function WalletDashboard() {
       >
         {/* Header - 3-tier responsive design */}
         <motion.div
-          className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4"
+          className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 w-full"
           variants={itemVariants}
         >
-          <div className="flex items-center gap-3 md:gap-4 lg:gap-5">
-            <div className="flex-1">
-              <div className="flex items-center gap-3">
-                <AccountSwitcher />
-              </div>
-              <p className="text-muted-foreground text-sm md:text-base lg:text-lg mt-1">Manage your digital assets</p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+          <div className="flex items-center gap-2 justify-self-start">
             {/* Network selector */}
             <NetworkSelector />
+          </div>
+          
+          <div className="flex flex-col items-center gap-2 justify-self-center">
+            <AccountSwitcher />
+            <p className="text-muted-foreground text-sm md:text-base lg:text-lg text-center">Manage your digital assets</p>
+          </div>
 
+          <div className="flex items-center gap-2 justify-self-end">
             <ThemeToggle />
             <Button
               variant="outline"
@@ -456,6 +460,13 @@ export function WalletDashboard() {
               disabled={isRefreshing}
             >
               <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="icon"
+              onClick={() => setShowAddressBook(true)}
+            >
+              <Book className="w-4 h-4" />
             </Button>
             <Button variant="outline" size="icon">
               <Settings className="w-4 h-4" />
@@ -543,7 +554,11 @@ export function WalletDashboard() {
                       <Send className="w-4 h-4 mr-2" />
                       Send
                     </Button>
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setShowReceiveModal(true)}
+                    >
                       <ArrowDownLeft className="w-4 h-4 mr-2" />
                       Receive
                     </Button>
@@ -805,72 +820,7 @@ export function WalletDashboard() {
               animate="visible"
               exit="hidden"
             >
-              <Card className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold">Recent Transactions</h3>
-                  <Button variant="outline" size="sm">
-                    View All
-                  </Button>
-                </div>
-
-                <div className="space-y-4">
-                  {walletData.transactions.map((transaction, index) => (
-                    <motion.div
-                      key={transaction.id}
-                      className="flex items-center justify-between p-4 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors cursor-pointer"
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                      whileHover={{ scale: 1.01 }}
-                    >
-                      <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center",
-                          transaction.type === 'send' ? "bg-destructive/20 text-destructive" :
-                            transaction.type === 'receive' ? "bg-primary/20 text-primary" :
-                              transaction.type === 'swap' ? "bg-accent/20 text-accent" :
-                                "bg-secondary/20 text-secondary-foreground"
-                        )}>
-                          {getTransactionIcon(transaction.type)}
-                        </div>
-                        <div>
-                          <div className="font-semibold capitalize">{transaction.type}</div>
-                          <div className="text-sm text-muted-foreground flex items-center gap-2">
-                            <Clock className="w-3 h-3" />
-                            {formatTime(transaction.timestamp)}
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="text-right">
-                        <div className={cn(
-                          "font-semibold",
-                          transaction.type === 'send' ? "text-destructive" : "text-primary"
-                        )}>
-                          {transaction.type === 'send' ? '-' : '+'}{transaction.amount} {transaction.asset}
-                        </div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatCurrency(transaction.value)}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Badge
-                          variant={
-                            transaction.status === 'completed' ? 'default' :
-                              transaction.status === 'pending' ? 'secondary' : 'destructive'
-                          }
-                        >
-                          {transaction.status}
-                        </Badge>
-                        <Button variant="ghost" size="icon" className="w-8 h-8">
-                          <ExternalLink className="w-3 h-3" />
-                        </Button>
-                      </div>
-                    </motion.div>
-                  ))}
-                </div>
-              </Card>
+              <TransactionHistory />
             </motion.div>
           )}
         </AnimatePresence>
@@ -880,6 +830,19 @@ export function WalletDashboard() {
       <SendModal
         isOpen={showSendModal}
         onClose={() => setShowSendModal(false)}
+      />
+
+      {/* Receive Modal */}
+      <ReceiveModal
+        isOpen={showReceiveModal}
+        onClose={() => setShowReceiveModal(false)}
+      />
+
+      {/* Address Book */}
+      <AddressBook
+        isOpen={showAddressBook}
+        onClose={() => setShowAddressBook(false)}
+        mode="manage"
       />
     </div>
   );

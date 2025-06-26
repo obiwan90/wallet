@@ -14,6 +14,7 @@ import {
   type Chain,
   type Hash
 } from 'viem';
+import { priceService } from './price-service';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, polygon, bsc, avalanche, arbitrum, optimism, base, sepolia, polygonMumbai, bscTestnet } from 'viem/chains';
 
@@ -47,6 +48,9 @@ export interface TokenBalance {
   balance: string;
   formattedBalance: string;
   balanceWei: bigint;
+  priceUsd?: number;
+  valueUsd?: number;
+  change24h?: number;
 }
 
 export interface TransactionRequest {
@@ -88,6 +92,24 @@ export interface NetworkInfo {
   rpcUrls: string[];
   isTestnet?: boolean;
   isCustom?: boolean;
+}
+
+export interface TransactionHistory {
+  hash: Hash;
+  from: Address;
+  to: Address;
+  value: string;
+  formattedValue: string;
+  gasUsed: string;
+  gasPrice: string;
+  blockNumber: number;
+  timestamp: number;
+  status: 'success' | 'failed' | 'pending';
+  type: 'send' | 'receive' | 'contract';
+  tokenSymbol?: string;
+  tokenAddress?: Address;
+  tokenAmount?: string;
+  chainId: number;
 }
 
 // ERC-20 ABI for basic token operations
@@ -487,11 +509,30 @@ export class WalletService {
 
       const formattedBalance = formatUnits(balanceWei, tokenInfo.decimals);
 
+      // Get price information
+      let priceUsd: number | undefined;
+      let valueUsd: number | undefined;
+      let change24h: number | undefined;
+
+      try {
+        const priceData = await priceService.getTokenPrice(tokenInfo.symbol, this.currentChain.id);
+        if (priceData) {
+          priceUsd = priceData.priceUsd;
+          change24h = priceData.change24h;
+          valueUsd = parseFloat(formattedBalance) * priceData.priceUsd;
+        }
+      } catch (error) {
+        console.warn(`Failed to get price for ${tokenInfo.symbol}:`, error);
+      }
+
       return {
         token: tokenInfo,
         balance: balanceWei.toString(),
         formattedBalance,
-        balanceWei
+        balanceWei,
+        priceUsd,
+        valueUsd,
+        change24h
       };
     });
   }
@@ -725,6 +766,186 @@ export class WalletService {
   getAllNetworks(): Record<number, NetworkInfo> {
     const customNetworks = this.getCustomNetworks();
     return { ...NETWORKS, ...customNetworks };
+  }
+
+  // Get transaction history for an address
+  async getTransactionHistory(address: Address, limit: number = 50): Promise<TransactionHistory[]> {
+    if (!this.publicClient) {
+      throw new Error('Wallet service not initialized');
+    }
+
+    try {
+      // Get the latest block for pagination
+      const latestBlock = await this.publicClient.getBlock();
+      const currentBlockNumber = Number(latestBlock.number);
+      
+      // We'll scan the last 1000 blocks or so to get recent transactions
+      const fromBlock = Math.max(0, currentBlockNumber - 1000);
+      
+      const transactions: TransactionHistory[] = [];
+
+      // Get transactions where this address is involved (sent or received)
+      for (let blockNumber = currentBlockNumber; blockNumber >= fromBlock && transactions.length < limit; blockNumber--) {
+        try {
+          const block = await this.publicClient.getBlock({
+            blockNumber: BigInt(blockNumber),
+            includeTransactions: true
+          });
+
+          for (const tx of block.transactions) {
+            if (typeof tx === 'string') continue; // Skip if only hash is provided
+            
+            const transaction = tx as any;
+            
+            // Check if this transaction involves our address
+            const isFromAddress = transaction.from?.toLowerCase() === address.toLowerCase();
+            const isToAddress = transaction.to?.toLowerCase() === address.toLowerCase();
+            
+            if (!isFromAddress && !isToAddress) continue;
+
+            // Get transaction receipt for status and gas info
+            let receipt;
+            try {
+              receipt = await this.publicClient.getTransactionReceipt({ 
+                hash: transaction.hash 
+              });
+            } catch (error) {
+              console.warn('Failed to get receipt for', transaction.hash);
+              continue;
+            }
+
+            const transactionHistory: TransactionHistory = {
+              hash: transaction.hash,
+              from: transaction.from as Address,
+              to: transaction.to as Address,
+              value: transaction.value?.toString() || '0',
+              formattedValue: formatEther(transaction.value || 0n),
+              gasUsed: receipt.gasUsed?.toString() || '0',
+              gasPrice: transaction.gasPrice?.toString() || '0',
+              blockNumber: Number(block.number),
+              timestamp: Number(block.timestamp),
+              status: receipt.status === 'success' ? 'success' : 'failed',
+              type: isFromAddress ? 'send' : 'receive',
+              chainId: this.currentChain.id
+            };
+
+            // Check if this is a token transfer by looking at logs
+            if (receipt.logs && receipt.logs.length > 0) {
+              const tokenTransferLog = receipt.logs.find((log: any) => 
+                log.topics?.[0] === '0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef' // Transfer event
+              );
+              
+              if (tokenTransferLog) {
+                transactionHistory.type = 'contract';
+                // You could decode the token info here if needed
+              }
+            }
+
+            transactions.push(transactionHistory);
+            
+            if (transactions.length >= limit) break;
+          }
+        } catch (error) {
+          console.warn(`Failed to get block ${blockNumber}:`, error);
+          continue;
+        }
+      }
+
+      // Sort by timestamp descending (newest first)
+      return transactions.sort((a, b) => b.timestamp - a.timestamp);
+
+    } catch (error) {
+      console.error('Failed to get transaction history:', error);
+      throw new Error('Failed to fetch transaction history');
+    }
+  }
+
+  // Get native token balance with price
+  async getNativeTokenBalance(address: Address): Promise<{ balance: string; priceUsd?: number; valueUsd?: number; change24h?: number }> {
+    try {
+      const balance = await this.getBalance(address);
+      const networkConfig = NETWORKS[this.currentChain.id as keyof typeof NETWORKS];
+      
+      if (!networkConfig) {
+        return { balance };
+      }
+
+      // Get price information for native token
+      let priceUsd: number | undefined;
+      let valueUsd: number | undefined;
+      let change24h: number | undefined;
+
+      try {
+        const priceData = await priceService.getTokenPrice(networkConfig.symbol, this.currentChain.id);
+        if (priceData) {
+          priceUsd = priceData.priceUsd;
+          change24h = priceData.change24h;
+          valueUsd = parseFloat(balance) * priceData.priceUsd;
+        }
+      } catch (error) {
+        console.warn(`Failed to get price for ${networkConfig.symbol}:`, error);
+      }
+
+      return {
+        balance,
+        priceUsd,
+        valueUsd,
+        change24h
+      };
+    } catch (error) {
+      console.error('Failed to get native token balance:', error);
+      throw error;
+    }
+  }
+
+  // Get pending transactions for an address
+  async getPendingTransactions(address: Address): Promise<TransactionHistory[]> {
+    if (!this.publicClient) {
+      throw new Error('Wallet service not initialized');
+    }
+
+    try {
+      // This is a simplified implementation
+      // In a real app, you might use mempool APIs or track pending transactions locally
+      const pendingTxs: TransactionHistory[] = [];
+      
+      // You could store pending transaction hashes in localStorage
+      // and check their status periodically
+      const storedPending = localStorage.getItem(`pending_txs_${address}`);
+      if (storedPending) {
+        const pendingHashes = JSON.parse(storedPending);
+        
+        for (const hash of pendingHashes) {
+          const status = await this.getTransactionStatus(hash as Hash);
+          if (status.status === 'pending') {
+            try {
+              const tx = await this.publicClient.getTransaction({ hash });
+              pendingTxs.push({
+                hash: tx.hash,
+                from: tx.from,
+                to: tx.to || '0x0000000000000000000000000000000000000000' as Address,
+                value: tx.value?.toString() || '0',
+                formattedValue: formatEther(tx.value || 0n),
+                gasUsed: '0',
+                gasPrice: tx.gasPrice?.toString() || '0',
+                blockNumber: 0,
+                timestamp: Date.now() / 1000,
+                status: 'pending',
+                type: tx.from.toLowerCase() === address.toLowerCase() ? 'send' : 'receive',
+                chainId: this.currentChain.id
+              });
+            } catch (error) {
+              console.warn('Failed to get pending transaction:', error);
+            }
+          }
+        }
+      }
+      
+      return pendingTxs;
+    } catch (error) {
+      console.error('Failed to get pending transactions:', error);
+      return [];
+    }
   }
 }
 

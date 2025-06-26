@@ -13,7 +13,8 @@ import {
   Loader2,
   Wallet as WalletIcon,
   ChevronDown,
-  Coins
+  Coins,
+  Book
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,6 +26,8 @@ import { cn } from '@/lib/utils';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { walletService, isValidAddress, formatAddress, NETWORKS, type TransactionRequest, type TokenTransferRequest, type Account } from '@/lib/web3';
 import { walletManager } from '@/lib/wallet-manager';
+import { AddressBook } from '@/components/AddressBook';
+import { addressBookService } from '@/lib/address-book';
 import { toast } from 'sonner';
 
 interface SendModalProps {
@@ -63,6 +66,7 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
   const [txHash, setTxHash] = useState<string>('');
   const [error, setError] = useState<string>('');
   const [isEstimatingGas, setIsEstimatingGas] = useState(false);
+  const [showAddressBook, setShowAddressBook] = useState(false);
 
   const networkConfig = wallet ? NETWORKS[wallet.chainId as keyof typeof NETWORKS] : null;
 
@@ -155,6 +159,15 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
       estimateGas();
     }
   }, [recipient, amount, selectedAsset, wallet]);
+
+  // Handle address selection from address book
+  const handleAddressSelect = (address: string, name?: string) => {
+    setRecipient(address);
+    if (name) {
+      toast.success(`已选择 ${name} 的地址`);
+    }
+    setShowAddressBook(false);
+  };
 
   const estimateGas = async () => {
     if (!wallet || !selectedAsset) return;
@@ -299,6 +312,7 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
   if (!isOpen) return null;
 
   return (
+    <>
     <AnimatePresence>
       <motion.div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -415,21 +429,43 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
                     <Label htmlFor="recipient" className="text-sm md:text-base">
                       接收方地址
                     </Label>
-                    <Input
-                      id="recipient"
-                      placeholder="0x..."
-                      value={recipient}
-                      onChange={(e) => setRecipient(e.target.value)}
-                      className={cn(
-                        "h-11 md:h-12 text-sm md:text-base",
-                        recipient && !isValidRecipient && "border-destructive"
-                      )}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="recipient"
+                        placeholder="0x..."
+                        value={recipient}
+                        onChange={(e) => setRecipient(e.target.value)}
+                        className={cn(
+                          "h-11 md:h-12 text-sm md:text-base flex-1",
+                          recipient && !isValidRecipient && "border-destructive"
+                        )}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowAddressBook(true)}
+                        className="h-11 md:h-12 px-3"
+                      >
+                        <Book className="w-4 h-4" />
+                      </Button>
+                    </div>
                     {recipient && !isValidRecipient && (
                       <div className="flex items-center gap-1 text-xs text-destructive">
                         <AlertCircle className="w-3 h-3" />
                         Invalid Ethereum address
                       </div>
+                    )}
+                    {recipient && isValidRecipient && (
+                      (() => {
+                        const entry = addressBookService.findByAddress(recipient as any, wallet?.chainId);
+                        return entry ? (
+                          <div className="flex items-center gap-1 text-xs text-green-600">
+                            <CheckCircle className="w-3 h-3" />
+                            {entry.name} - 来自地址簿
+                          </div>
+                        ) : null;
+                      })()
                     )}
                   </div>
 
@@ -683,5 +719,13 @@ export function SendModal({ isOpen, onClose }: SendModalProps) {
         </motion.div>
       </motion.div>
     </AnimatePresence>
-  );
+
+    {/* Address Book Modal */}
+    <AddressBook
+      isOpen={showAddressBook}
+      onClose={() => setShowAddressBook(false)}
+      onSelectAddress={handleAddressSelect}
+      mode="select"
+    />
+  </>);
 }

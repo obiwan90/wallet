@@ -235,9 +235,8 @@ export function AccountSwitcher({ className }: AccountSwitcherProps) {
         className="flex items-center gap-3 h-auto p-3 bg-muted/50 hover:bg-muted rounded-lg"
       >
         <div className="text-left">
-          <div className="text-sm font-medium">{currentAccount?.name || 'Account'}</div>
-          <div className="text-xs text-muted-foreground">
-            {formatAddress(wallet.address)}
+          <div className="text-sm font-medium">
+            {currentAccount?.name || 'Account'} {formatAddress(wallet.address)}
           </div>
         </div>
         <ChevronDown className={cn(
