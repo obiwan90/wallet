@@ -154,7 +154,7 @@ export const ERC20_ABI = [
   }
 ] as const;
 
-// Network configurations with multiple RPC endpoints for redundancy
+// Network configurations with CORS-enabled RPC endpoints
 export const NETWORKS = {
   1: { 
     name: 'Ethereum', 
@@ -162,9 +162,10 @@ export const NETWORKS = {
     chain: mainnet, 
     color: '#627EEA', 
     rpcUrls: [
-      'https://eth.llamarpc.com',
       'https://ethereum.publicnode.com',
-      'https://rpc.ankr.com/eth'
+      'https://rpc.ankr.com/eth',
+      'https://1rpc.io/eth',
+      'https://cloudflare-eth.com'
     ]
   },
   137: { 
@@ -173,9 +174,10 @@ export const NETWORKS = {
     chain: polygon, 
     color: '#8247E5', 
     rpcUrls: [
-      'https://polygon.llamarpc.com',
       'https://polygon-rpc.com',
-      'https://rpc.ankr.com/polygon'
+      'https://rpc.ankr.com/polygon',
+      'https://1rpc.io/matic',
+      'https://polygon.publicnode.com'
     ]
   },
   56: { 
@@ -184,9 +186,10 @@ export const NETWORKS = {
     chain: bsc, 
     color: '#F3BA2F', 
     rpcUrls: [
-      'https://binance.llamarpc.com',
       'https://bsc-dataseed.binance.org',
-      'https://rpc.ankr.com/bsc'
+      'https://rpc.ankr.com/bsc',
+      'https://1rpc.io/bnb',
+      'https://bsc.publicnode.com'
     ]
   },
   43114: { 
@@ -195,9 +198,10 @@ export const NETWORKS = {
     chain: avalanche, 
     color: '#E84142', 
     rpcUrls: [
-      'https://avalanche.drpc.org',
       'https://api.avax.network/ext/bc/C/rpc',
-      'https://rpc.ankr.com/avalanche'
+      'https://rpc.ankr.com/avalanche',
+      'https://1rpc.io/avax/c',
+      'https://avalanche.publicnode.com'
     ]
   },
   42161: { 
@@ -206,9 +210,10 @@ export const NETWORKS = {
     chain: arbitrum, 
     color: '#28A0F0', 
     rpcUrls: [
-      'https://arbitrum.llamarpc.com',
       'https://arb1.arbitrum.io/rpc',
-      'https://rpc.ankr.com/arbitrum'
+      'https://rpc.ankr.com/arbitrum',
+      'https://1rpc.io/arb',
+      'https://arbitrum.publicnode.com'
     ]
   },
   10: { 
@@ -217,9 +222,10 @@ export const NETWORKS = {
     chain: optimism, 
     color: '#FF0420', 
     rpcUrls: [
-      'https://optimism.llamarpc.com',
       'https://mainnet.optimism.io',
-      'https://rpc.ankr.com/optimism'
+      'https://rpc.ankr.com/optimism',
+      'https://1rpc.io/op',
+      'https://optimism.publicnode.com'
     ]
   },
   8453: { 
@@ -228,9 +234,10 @@ export const NETWORKS = {
     chain: base, 
     color: '#0052FF', 
     rpcUrls: [
-      'https://base.llamarpc.com',
       'https://mainnet.base.org',
-      'https://rpc.ankr.com/base'
+      'https://rpc.ankr.com/base',
+      'https://1rpc.io/base',
+      'https://base.publicnode.com'
     ]
   },
   // Testnets
@@ -322,6 +329,72 @@ export class WalletService {
     this.walletClient = null;
   }
 
+  // Helper method for RPC requests with CORS fallback
+  private async makeRpcRequest(method: string, params: any[] = []): Promise<any> {
+    const networkConfig = NETWORKS[this.currentChain.id as keyof typeof NETWORKS];
+    if (!networkConfig) {
+      throw new Error(`Unsupported network: ${this.currentChain.id}`);
+    }
+
+    const rpcBody = {
+      jsonrpc: '2.0',
+      method,
+      params,
+      id: Date.now()
+    };
+
+    // Try direct RPC request first
+    for (const rpcUrl of networkConfig.rpcUrls) {
+      try {
+        const response = await fetch(rpcUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(rpcBody),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.error) {
+            throw new Error(data.error.message || 'RPC error');
+          }
+          return data.result;
+        }
+      } catch (error) {
+        console.warn(`Direct RPC failed for ${rpcUrl}:`, error);
+        // Continue to next RPC URL or fallback
+      }
+    }
+
+    // Fallback to proxy API if direct requests fail
+    try {
+      const response = await fetch('/api/rpc', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          chainId: this.currentChain.id,
+          rpcUrl: networkConfig.rpcUrls[0], // Use first RPC URL for proxy
+          body: rpcBody,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.error) {
+          throw new Error(data.error.message || 'RPC error');
+        }
+        return data.result;
+      }
+    } catch (error) {
+      console.warn('Proxy RPC also failed:', error);
+    }
+
+    throw new Error('All RPC endpoints failed');
+  }
+
   private async retryWithFallback<T>(operation: () => Promise<T>, maxRetries: number = 3): Promise<T> {
     const networkConfig = NETWORKS[this.currentChain.id as keyof typeof NETWORKS];
     if (!networkConfig) {
@@ -353,12 +426,9 @@ export class WalletService {
 
   async getBalance(address: Address): Promise<string> {
     try {
-      const balance = await this.retryWithFallback(async () => {
-        if (!this.publicClient) {
-          throw new Error('Public client not initialized');
-        }
-        return await this.publicClient.getBalance({ address });
-      });
+      // Try the CORS-safe RPC method first
+      const balanceHex = await this.makeRpcRequest('eth_getBalance', [address, 'latest']);
+      const balance = BigInt(balanceHex);
       return formatEther(balance);
     } catch (error) {
       console.error('Failed to get balance:', error);
@@ -770,61 +840,56 @@ export class WalletService {
 
   // Get transaction history for an address
   async getTransactionHistory(address: Address, limit: number = 50): Promise<TransactionHistory[]> {
-    if (!this.publicClient) {
-      throw new Error('Wallet service not initialized');
-    }
-
     try {
-      // Get the latest block for pagination
-      const latestBlock = await this.publicClient.getBlock();
-      const currentBlockNumber = Number(latestBlock.number);
+      // Get the latest block number using our CORS-safe RPC method
+      const latestBlockResult = await this.makeRpcRequest('eth_blockNumber');
+      const currentBlockNumber = parseInt(latestBlockResult, 16);
       
-      // We'll scan the last 1000 blocks or so to get recent transactions
-      const fromBlock = Math.max(0, currentBlockNumber - 1000);
+      // We'll scan the last 500 blocks to avoid too many requests
+      const fromBlock = Math.max(0, currentBlockNumber - 500);
       
       const transactions: TransactionHistory[] = [];
 
       // Get transactions where this address is involved (sent or received)
       for (let blockNumber = currentBlockNumber; blockNumber >= fromBlock && transactions.length < limit; blockNumber--) {
         try {
-          const block = await this.publicClient.getBlock({
-            blockNumber: BigInt(blockNumber),
-            includeTransactions: true
-          });
+          const blockHex = '0x' + blockNumber.toString(16);
+          const block = await this.makeRpcRequest('eth_getBlockByNumber', [blockHex, true]);
+          
+          if (!block || !block.transactions) {
+            console.warn(`Failed to get block ${blockNumber}`);
+            continue;
+          }
 
           for (const tx of block.transactions) {
-            if (typeof tx === 'string') continue; // Skip if only hash is provided
-            
-            const transaction = tx as any;
+            if (!tx || typeof tx === 'string') continue; // Skip if only hash is provided
             
             // Check if this transaction involves our address
-            const isFromAddress = transaction.from?.toLowerCase() === address.toLowerCase();
-            const isToAddress = transaction.to?.toLowerCase() === address.toLowerCase();
+            const isFromAddress = tx.from?.toLowerCase() === address.toLowerCase();
+            const isToAddress = tx.to?.toLowerCase() === address.toLowerCase();
             
             if (!isFromAddress && !isToAddress) continue;
 
             // Get transaction receipt for status and gas info
             let receipt;
             try {
-              receipt = await this.publicClient.getTransactionReceipt({ 
-                hash: transaction.hash 
-              });
+              receipt = await this.makeRpcRequest('eth_getTransactionReceipt', [tx.hash]);
             } catch (error) {
-              console.warn('Failed to get receipt for', transaction.hash);
+              console.warn('Failed to get receipt for', tx.hash);
               continue;
             }
 
             const transactionHistory: TransactionHistory = {
-              hash: transaction.hash,
-              from: transaction.from as Address,
-              to: transaction.to as Address,
-              value: transaction.value?.toString() || '0',
-              formattedValue: formatEther(transaction.value || 0n),
-              gasUsed: receipt.gasUsed?.toString() || '0',
-              gasPrice: transaction.gasPrice?.toString() || '0',
-              blockNumber: Number(block.number),
-              timestamp: Number(block.timestamp),
-              status: receipt.status === 'success' ? 'success' : 'failed',
+              hash: tx.hash,
+              from: tx.from as Address,
+              to: tx.to as Address,
+              value: tx.value?.toString() || '0',
+              formattedValue: formatEther(BigInt(tx.value || '0x0')),
+              gasUsed: receipt?.gasUsed?.toString() || '0',
+              gasPrice: tx.gasPrice?.toString() || '0',
+              blockNumber: parseInt(block.number, 16),
+              timestamp: parseInt(block.timestamp, 16),
+              status: receipt?.status === '0x1' ? 'success' : 'failed',
               type: isFromAddress ? 'send' : 'receive',
               chainId: this.currentChain.id
             };
