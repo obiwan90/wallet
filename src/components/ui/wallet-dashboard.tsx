@@ -23,7 +23,11 @@ import {
   Activity,
   Clock,
   LogOut,
-  Book
+  Book,
+  Zap,
+  FileText,
+  Image as ImageIcon,
+  BarChart3
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -38,6 +42,10 @@ import { TransactionHistory } from '@/components/TransactionHistory';
 import { ReceiveModal } from '@/components/ReceiveModal';
 import { AddressBook } from '@/components/AddressBook';
 import { SwapModal } from '@/components/SwapModal';
+import { GasOptimizerModal } from '@/components/GasOptimizerModal';
+import { ExportModal } from '@/components/ExportModal';
+import { MarketOverview } from '@/components/PriceCard';
+import { NFTGallery } from '@/components/NFTGallery';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { NETWORKS } from '@/lib/web3';
 
@@ -287,12 +295,16 @@ export function WalletDashboard() {
     isLoadingTokens,
     refreshBalance,
     refreshTokenBalances,
-    networkHealth
+    networkHealth,
+    priceData,
+    isLoadingPrices,
+    portfolioValue,
+    refreshPrices
   } = useWeb3();
 
   const [walletData] = useState<WalletData>(mockWalletData); // Keep mock for transactions for now
   const [isBalanceVisible, setIsBalanceVisible] = useState(true);
-  const [selectedTab, setSelectedTab] = useState<'assets' | 'transactions'>('assets');
+  const [selectedTab, setSelectedTab] = useState<'assets' | 'transactions' | 'market' | 'nfts'>('assets');
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -300,6 +312,8 @@ export function WalletDashboard() {
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showAddressBook, setShowAddressBook] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
+  const [showGasOptimizer, setShowGasOptimizer] = useState(false);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -311,7 +325,7 @@ export function WalletDashboard() {
     if (!wallet) return;
     setIsRefreshing(true);
     try {
-      await Promise.all([refreshBalance(), refreshTokenBalances()]);
+      await Promise.all([refreshBalance(), refreshTokenBalances(), refreshPrices()]);
     } catch (error) {
       console.error('Failed to refresh data:', error);
     } finally {
@@ -319,26 +333,8 @@ export function WalletDashboard() {
     }
   };
 
-  // Calculate total portfolio value from real data
-  const calculateTotalValue = () => {
-    if (!wallet) return 0;
-
-    let total = parseFloat(wallet.balance) * 2500; // Assume ETH price for native token
-
-    // Add token values (using mock prices for now)
-    tokenBalances.forEach(tokenBalance => {
-      const balance = parseFloat(tokenBalance.formattedBalance);
-      if (tokenBalance.token.symbol === 'USDC' || tokenBalance.token.symbol === 'USDT') {
-        total += balance; // Stablecoins = $1
-      } else {
-        total += balance * 100; // Other tokens mock price
-      }
-    });
-
-    return total;
-  };
-
-  const totalValue = calculateTotalValue();
+  // Use real portfolio value from context
+  const totalValue = portfolioValue || 0;
   const networkConfig = wallet ? NETWORKS[wallet.chainId as keyof typeof NETWORKS] : null;
 
   const handleSendClick = () => {
@@ -533,7 +529,7 @@ export function WalletDashboard() {
                       {wallet && (
                         <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground">
                           <span>{networkConfig?.symbol} Balance: {isBalanceVisible ? wallet.balance : '••••'}</span>
-                          {isLoadingTokens && (
+                          {(isLoadingTokens || isLoadingPrices) && (
                             <div className="animate-spin w-3 h-3 border border-gray-300 border-t-primary rounded-full" />
                           )}
                         </div>
@@ -575,9 +571,13 @@ export function WalletDashboard() {
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Swap
                     </Button>
-                    <Button variant="outline" className="flex-1">
-                      <Plus className="w-4 h-4 mr-2" />
-                      Buy
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setShowGasOptimizer(true)}
+                    >
+                      <Zap className="w-4 h-4 mr-2" />
+                      Gas
                     </Button>
                   </ButtonGroup>
                 </div>
@@ -588,25 +588,56 @@ export function WalletDashboard() {
 
         {/* Tab Navigation */}
         <motion.div variants={itemVariants}>
-          <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg w-fit">
-            <Button
-              variant={selectedTab === 'assets' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setSelectedTab('assets')}
-              className="relative"
-            >
-              <PieChart className="w-4 h-4 mr-2" />
-              Assets
-            </Button>
-            <Button
-              variant={selectedTab === 'transactions' ? 'default' : 'ghost'}
-              size="sm"
-              onClick={() => setSelectedTab('transactions')}
-              className="relative"
-            >
-              <Activity className="w-4 h-4 mr-2" />
-              Transactions
-            </Button>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1 bg-muted/50 p-1 rounded-lg">
+              <Button
+                variant={selectedTab === 'assets' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSelectedTab('assets')}
+                className="relative"
+              >
+                <PieChart className="w-4 h-4 mr-2" />
+                Assets
+              </Button>
+              <Button
+                variant={selectedTab === 'transactions' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSelectedTab('transactions')}
+                className="relative"
+              >
+                <Activity className="w-4 h-4 mr-2" />
+                Transactions
+              </Button>
+              <Button
+                variant={selectedTab === 'market' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSelectedTab('market')}
+                className="relative"
+              >
+                <BarChart3 className="w-4 h-4 mr-2" />
+                Market
+              </Button>
+              <Button
+                variant={selectedTab === 'nfts' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setSelectedTab('nfts')}
+                className="relative"
+              >
+                <ImageIcon className="w-4 h-4 mr-2" />
+                NFTs
+              </Button>
+            </div>
+            
+            {selectedTab === 'transactions' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowExportModal(true)}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Export
+              </Button>
+            )}
           </div>
         </motion.div>
 
@@ -660,17 +691,48 @@ export function WalletDashboard() {
                             {isBalanceVisible ? wallet.balance : '••••'}
                           </div>
                           <div className="text-xs sm:text-sm text-muted-foreground">
-                            {isBalanceVisible ? formatCurrency(parseFloat(wallet.balance) * 2500) : '••••'}
+                            {isBalanceVisible ? (() => {
+                              const chainSymbols: Record<number, string> = {
+                                1: 'ETH', 137: 'MATIC', 56: 'BNB', 43114: 'AVAX',
+                                42161: 'ETH', 10: 'ETH', 8453: 'ETH'
+                              };
+                              const nativeSymbol = chainSymbols[wallet.chainId] || 'ETH';
+                              const price = priceData[nativeSymbol];
+                              return price ? formatCurrency(parseFloat(wallet.balance) * price.priceUsd) : '••••';
+                            })() : '••••'}
                           </div>
                         </div>
 
                         <div className="text-right flex-shrink-0">
                           <div className="font-semibold text-sm sm:text-base">
-                            $2,500
+                            {(() => {
+                              const chainSymbols: Record<number, string> = {
+                                1: 'ETH', 137: 'MATIC', 56: 'BNB', 43114: 'AVAX',
+                                42161: 'ETH', 10: 'ETH', 8453: 'ETH'
+                              };
+                              const nativeSymbol = chainSymbols[wallet.chainId] || 'ETH';
+                              const price = priceData[nativeSymbol];
+                              return price ? formatCurrency(price.priceUsd) : '••••';
+                            })()}
                           </div>
-                          <div className="text-xs sm:text-sm flex items-center gap-1 justify-end text-primary">
-                            <TrendingUp className="w-3 h-3" />
-                            <span className="hidden sm:inline">+2.5%</span>
+                          <div className="text-xs sm:text-sm flex items-center gap-1 justify-end">
+                            {(() => {
+                              const chainSymbols: Record<number, string> = {
+                                1: 'ETH', 137: 'MATIC', 56: 'BNB', 43114: 'AVAX',
+                                42161: 'ETH', 10: 'ETH', 8453: 'ETH'
+                              };
+                              const nativeSymbol = chainSymbols[wallet.chainId] || 'ETH';
+                              const price = priceData[nativeSymbol];
+                              if (!price) return null;
+                              return (
+                                <>
+                                  {price.change24h >= 0 ? <TrendingUp className="w-3 h-3 text-green-600" /> : <TrendingDown className="w-3 h-3 text-red-600" />}
+                                  <span className={cn("hidden sm:inline", price.change24h >= 0 ? "text-green-600" : "text-red-600")}>
+                                    {price.change24h >= 0 ? '+' : ''}{price.change24h.toFixed(2)}%
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -704,21 +766,33 @@ export function WalletDashboard() {
                             {isBalanceVisible ? tokenBalance.formattedBalance : '••••'}
                           </div>
                           <div className="text-xs sm:text-sm text-muted-foreground">
-                            {isBalanceVisible ? (
-                              tokenBalance.token.symbol === 'USDC' || tokenBalance.token.symbol === 'USDT'
-                                ? formatCurrency(parseFloat(tokenBalance.formattedBalance))
-                                : formatCurrency(parseFloat(tokenBalance.formattedBalance) * 100)
-                            ) : '••••'}
+                            {isBalanceVisible ? (() => {
+                              const price = priceData[tokenBalance.token.symbol];
+                              return price ? formatCurrency(parseFloat(tokenBalance.formattedBalance) * price.priceUsd) : '••••';
+                            })() : '••••'}
                           </div>
                         </div>
 
                         <div className="text-right flex-shrink-0">
                           <div className="font-semibold text-sm sm:text-base">
-                            {tokenBalance.token.symbol === 'USDC' || tokenBalance.token.symbol === 'USDT' ? '$1.00' : '$100'}
+                            {(() => {
+                              const price = priceData[tokenBalance.token.symbol];
+                              return price ? formatCurrency(price.priceUsd) : '••••';
+                            })()}
                           </div>
-                          <div className="text-xs sm:text-sm flex items-center gap-1 justify-end text-primary">
-                            <TrendingUp className="w-3 h-3" />
-                            <span className="hidden sm:inline">+1.2%</span>
+                          <div className="text-xs sm:text-sm flex items-center gap-1 justify-end">
+                            {(() => {
+                              const price = priceData[tokenBalance.token.symbol];
+                              if (!price) return null;
+                              return (
+                                <>
+                                  {price.change24h >= 0 ? <TrendingUp className="w-3 h-3 text-green-600" /> : <TrendingDown className="w-3 h-3 text-red-600" />}
+                                  <span className={cn("hidden sm:inline", price.change24h >= 0 ? "text-green-600" : "text-red-600")}>
+                                    {price.change24h >= 0 ? '+' : ''}{price.change24h.toFixed(2)}%
+                                  </span>
+                                </>
+                              );
+                            })()}
                           </div>
                         </div>
 
@@ -818,7 +892,7 @@ export function WalletDashboard() {
                 </Card>
               </div>
             </motion.div>
-          ) : (
+          ) : selectedTab === 'transactions' ? (
             <motion.div
               key="transactions"
               variants={itemVariants}
@@ -827,6 +901,33 @@ export function WalletDashboard() {
               exit="hidden"
             >
               <TransactionHistory />
+            </motion.div>
+          ) : selectedTab === 'market' ? (
+            <motion.div
+              key="market"
+              variants={itemVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+            >
+              <MarketOverview
+                priceData={priceData}
+                isLoading={isLoadingPrices}
+                onRefresh={refreshPrices}
+              />
+            </motion.div>
+          ) : (
+            <motion.div
+              key="nfts"
+              variants={itemVariants}
+              initial="hidden"
+              animate="visible"
+              exit="hidden"
+            >
+              <NFTGallery 
+                address={wallet?.address}
+                chainId={wallet?.chainId}
+              />
             </motion.div>
           )}
         </AnimatePresence>
@@ -855,6 +956,19 @@ export function WalletDashboard() {
       <SwapModal
         isOpen={showSwapModal}
         onClose={() => setShowSwapModal(false)}
+      />
+
+      {/* Gas Optimizer Modal */}
+      <GasOptimizerModal
+        isOpen={showGasOptimizer}
+        onClose={() => setShowGasOptimizer(false)}
+      />
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        transactions={walletData.transactions}
       />
     </div>
   );

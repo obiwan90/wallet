@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { WalletInfo, walletService, TokenBalance, getCommonTokensForNetwork } from '@/lib/web3';
+import { priceService, TokenPrice, PriceData } from '@/lib/price-service';
 
 interface Web3ContextType {
   wallet: WalletInfo | null;
@@ -10,10 +11,14 @@ interface Web3ContextType {
   tokenBalances: TokenBalance[];
   isLoadingTokens: boolean;
   currentUserSession: { accountId: string; password: string } | null;
+  priceData: PriceData;
+  isLoadingPrices: boolean;
+  portfolioValue: number;
   setWallet: (wallet: WalletInfo | null) => void;
   setCurrentUserSession: (session: { accountId: string; password: string } | null) => void;
   refreshBalance: () => Promise<void>;
   refreshTokenBalances: () => Promise<void>;
+  refreshPrices: () => Promise<void>;
   networkHealth: { chainId: number; blockNumber: bigint; healthy: boolean } | null;
 }
 
@@ -26,6 +31,9 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   const [isLoadingTokens, setIsLoadingTokens] = useState(false);
   const [networkHealth, setNetworkHealth] = useState<{ chainId: number; blockNumber: bigint; healthy: boolean } | null>(null);
   const [currentUserSession, setCurrentUserSession] = useState<{ accountId: string; password: string } | null>(null);
+  const [priceData, setPriceData] = useState<PriceData>({});
+  const [isLoadingPrices, setIsLoadingPrices] = useState(false);
+  const [portfolioValue, setPortfolioValue] = useState(0);
 
   const refreshBalance = async () => {
     if (!wallet) return;
@@ -69,6 +77,81 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const refreshPrices = async () => {
+    if (!wallet) return;
+    try {
+      setIsLoadingPrices(true);
+      
+      // Get native token symbol based on chain
+      const chainSymbols: Record<number, string> = {
+        1: 'ETH',
+        137: 'MATIC',
+        56: 'BNB',
+        43114: 'AVAX',
+        42161: 'ETH',
+        10: 'ETH',
+        8453: 'ETH'
+      };
+      
+      const nativeSymbol = chainSymbols[wallet.chainId] || 'ETH';
+      
+      // Get all token symbols for current network
+      const commonTokens = getCommonTokensForNetwork(wallet.chainId);
+      const tokenSymbols = [nativeSymbol, ...commonTokens.map(token => token.symbol)];
+      
+      // Remove duplicates
+      const uniqueSymbols = [...new Set(tokenSymbols)];
+      
+      // Fetch prices with fallback to mock data
+      const prices = await priceService.getTokenPricesWithFallback(uniqueSymbols, wallet.chainId);
+      setPriceData(prices);
+      
+    } catch (error) {
+      console.error('Price refresh failed:', error);
+    } finally {
+      setIsLoadingPrices(false);
+    }
+  };
+
+  // Calculate portfolio value
+  const calculatePortfolioValue = async () => {
+    if (!wallet || Object.keys(priceData).length === 0) return;
+    
+    try {
+      let totalValue = 0;
+      
+      // Add native token value
+      const chainSymbols: Record<number, string> = {
+        1: 'ETH',
+        137: 'MATIC', 
+        56: 'BNB',
+        43114: 'AVAX',
+        42161: 'ETH',
+        10: 'ETH',
+        8453: 'ETH'
+      };
+      
+      const nativeSymbol = chainSymbols[wallet.chainId] || 'ETH';
+      const nativePrice = priceData[nativeSymbol];
+      
+      if (nativePrice) {
+        totalValue += parseFloat(wallet.balance) * nativePrice.priceUsd;
+      }
+      
+      // Add token values
+      tokenBalances.forEach(tokenBalance => {
+        const price = priceData[tokenBalance.token.symbol];
+        if (price) {
+          totalValue += parseFloat(tokenBalance.formattedBalance) * price.priceUsd;
+        }
+      });
+      
+      setPortfolioValue(totalValue);
+    } catch (error) {
+      console.error('Portfolio value calculation failed:', error);
+    }
+  };
+
   // Check network health periodically
   useEffect(() => {
     const checkHealth = async () => {
@@ -94,6 +177,32 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       setTokenBalances([]);
     }
   }, [wallet?.address, wallet?.chainId]);
+
+  // Auto-refresh prices when wallet changes
+  useEffect(() => {
+    if (wallet) {
+      refreshPrices();
+    } else {
+      setPriceData({});
+      setPortfolioValue(0);
+    }
+  }, [wallet?.address, wallet?.chainId]);
+
+  // Periodically refresh prices
+  useEffect(() => {
+    if (!wallet) return;
+    
+    const interval = setInterval(() => {
+      refreshPrices();
+    }, 600000); // Refresh every 10 minutes to reduce API calls
+
+    return () => clearInterval(interval);
+  }, [wallet?.address, wallet?.chainId]);
+
+  // Calculate portfolio value when prices or balances change
+  useEffect(() => {
+    calculatePortfolioValue();
+  }, [wallet, priceData, tokenBalances]);
 
   // Custom setWallet that respects preferred network
   const setWalletWithNetwork = (walletInfo: WalletInfo | null) => {
@@ -134,10 +243,14 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
         tokenBalances,
         isLoadingTokens,
         currentUserSession,
+        priceData,
+        isLoadingPrices,
+        portfolioValue,
         setWallet: setWalletWithNetwork,
         setCurrentUserSession,
         refreshBalance,
         refreshTokenBalances,
+        refreshPrices,
         networkHealth,
       }}
     >

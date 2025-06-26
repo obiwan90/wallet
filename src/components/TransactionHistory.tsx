@@ -16,10 +16,12 @@ import {
   RefreshCw,
   Clock,
   CheckCircle,
-  XCircle
+  XCircle,
+  Download
 } from 'lucide-react';
 import { walletService, NETWORKS, formatAddress } from '@/lib/web3';
 import type { TransactionHistory as TransactionHistoryType } from '@/lib/web3';
+import { ExportModal } from '@/components/ExportModal';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -28,6 +30,7 @@ export function TransactionHistory() {
   const [transactions, setTransactions] = useState<TransactionHistoryType[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showExportModal, setShowExportModal] = useState(false);
 
   const networkSymbol = wallet ? NETWORKS[wallet.chainId as keyof typeof NETWORKS]?.symbol || 'ETH' : 'ETH';
 
@@ -157,15 +160,26 @@ export function TransactionHistory() {
             <History className="h-5 w-5" />
             交易历史
           </CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={loadTransactionHistory}
-            disabled={loading}
-          >
-            <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
-            刷新
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowExportModal(true)}
+              disabled={transactions.length === 0}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              导出
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={loadTransactionHistory}
+              disabled={loading}
+            >
+              <RefreshCw className={cn("w-4 h-4 mr-2", loading && "animate-spin")} />
+              刷新
+            </Button>
+          </div>
         </div>
       </CardHeader>
       
@@ -267,6 +281,13 @@ export function TransactionHistory() {
           </AnimatePresence>
         </ScrollArea>
       </CardContent>
+
+      {/* Export Modal */}
+      <ExportModal
+        isOpen={showExportModal}
+        onClose={() => setShowExportModal(false)}
+        transactions={transactions}
+      />
     </Card>
   );
 }
