@@ -37,6 +37,7 @@ import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { TransactionHistory } from '@/components/TransactionHistory';
 import { ReceiveModal } from '@/components/ReceiveModal';
 import { AddressBook } from '@/components/AddressBook';
+import { SwapModal } from '@/components/SwapModal';
 import { useWeb3 } from '@/contexts/Web3Context';
 import { NETWORKS } from '@/lib/web3';
 
@@ -298,6 +299,7 @@ export function WalletDashboard() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [showReceiveModal, setShowReceiveModal] = useState(false);
   const [showAddressBook, setShowAddressBook] = useState(false);
+  const [showSwapModal, setShowSwapModal] = useState(false);
 
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -565,7 +567,11 @@ export function WalletDashboard() {
                   </ButtonGroup>
 
                   <ButtonGroup>
-                    <Button variant="outline" className="flex-1">
+                    <Button 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setShowSwapModal(true)}
+                    >
                       <RefreshCw className="w-4 h-4 mr-2" />
                       Swap
                     </Button>
@@ -843,6 +849,12 @@ export function WalletDashboard() {
         isOpen={showAddressBook}
         onClose={() => setShowAddressBook(false)}
         mode="manage"
+      />
+
+      {/* Swap Modal */}
+      <SwapModal
+        isOpen={showSwapModal}
+        onClose={() => setShowSwapModal(false)}
       />
     </div>
   );

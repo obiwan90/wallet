@@ -868,6 +868,12 @@ export class WalletService {
     return { ...NETWORKS, ...customNetworks };
   }
 
+  // Get common tokens for current or specified network
+  getCommonTokensForNetwork(chainId?: number): TokenInfo[] {
+    const targetChainId = chainId || this.currentChain.id;
+    return COMMON_TOKENS[targetChainId] || [];
+  }
+
   // Get transaction history for an address
   async getTransactionHistory(address: Address, limit: number = 50): Promise<TransactionHistory[]> {
     try {
